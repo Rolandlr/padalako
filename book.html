@@ -1,0 +1,918 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>PadalaKo — Book a Delivery</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  :root { --bg:#f5f6f8; --card:#fff; --ink:#1b1f24; --muted:#5b6570; --line:#d9dde3; --brand:#0b6e4f; --err:#b3261e; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:16px/1.45 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--ink); }
+  main { max-width:560px; margin:0 auto; padding:16px; }
+  .brand-header { display:flex; align-items:center; gap:10px; margin:4px 0 14px; }
+  .brand-header svg { height:38px; width:auto; display:block; }
+  h1 { font-size:1.4rem; margin:8px 0 16px; }
+  fieldset { background:var(--card); border:1px solid var(--line); border-radius:12px; margin:0 0 14px; padding:12px 14px 14px; }
+  legend { font-weight:600; padding:0 6px; }
+  label { display:block; font-size:.9rem; color:var(--muted); margin-top:10px; }
+  input, select, textarea, button { width:100%; font:inherit; padding:11px 12px; border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--ink); }
+  textarea { min-height:64px; resize:vertical; }
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .veh-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-top:6px; }
+  .veh-btn { text-align:left; padding:10px; border:2px solid var(--line); border-radius:10px; background:#fff; cursor:pointer; }
+  .veh-btn.active { border-color:var(--brand); background:#e8f4ef; }
+  .veh-btn strong { display:block; font-size:.92rem; color:var(--ink); }
+  .veh-btn span { display:block; font-size:.75rem; color:var(--muted); margin-top:2px; }
+  .check { display:flex; align-items:center; gap:8px; margin-top:12px; color:var(--ink); font-size:1rem; }
+  .check input { width:auto; }
+  .hint { font-size:.8rem; color:var(--muted); margin-top:4px; }
+  .phone { display:flex; }
+  .phone .prefix { display:flex; align-items:center; padding:0 12px; border:1px solid var(--line); border-right:0; border-radius:8px 0 0 8px; background:#eef0f3; color:var(--muted); font-weight:600; }
+  .phone input { border-radius:0 8px 8px 0; }
+  @media (max-width:420px) { .row.addr { grid-template-columns:1fr; gap:0; } .veh-grid { grid-template-columns:1fr; } }
+  .quote { display:flex; justify-content:space-between; align-items:center; background:#e8f4ef; border-radius:10px; padding:12px 14px; margin-bottom:14px; font-weight:600; }
+  button.primary { background:var(--brand); color:#fff; border:0; font-weight:600; padding:14px; cursor:pointer; }
+  button.primary:disabled { opacity:.6; cursor:wait; }
+  button.secondary { background:#f0f4f2; color:var(--brand); border:1px solid #c3dfd3; font-weight:600; padding:8px 10px; font-size:.85rem; margin-top:8px; cursor:pointer; }
+  .msg { border-radius:10px; padding:12px 14px; margin:14px 0; }
+  .msg.ok { background:#e8f4ef; }
+  .msg.err { background:#fdecea; color:var(--err); }
+  .code { font-size:1.5rem; letter-spacing:.08em; font-weight:700; }
+  ul.timeline { list-style:none; padding:0; margin:10px 0 0; }
+  ul.timeline li { padding:6px 0; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; gap:8px; }
+  #map, #bookMap { width:100%; height:280px; border-radius:10px; margin-top:12px; z-index:0; border:1px solid var(--line); }
+  .map-legend { display:flex; flex-wrap:wrap; gap:12px; font-size:.78rem; color:var(--muted); margin-top:8px; }
+  .map-legend span { display:inline-flex; align-items:center; gap:5px; }
+  .dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header class="brand-header" aria-label="PadalaKo">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 265 56" role="img" aria-label="PadalaKo Logo">
+      <defs>
+        <linearGradient id="pkPinGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#19b85b"/>
+          <stop offset="100%" stop-color="#0b6e4f"/>
+        </linearGradient>
+      </defs>
+      <!-- Speed trails -->
+      <rect x="2" y="16" width="11" height="3.2" rx="1.6" fill="#19b85b"/>
+      <rect x="0" y="24" width="14" height="3.2" rx="1.6" fill="#19b85b"/>
+      <rect x="3" y="32" width="10" height="3.2" rx="1.6" fill="#19b85b"/>
+      <!-- Location Pin -->
+      <path d="M35 4C23.4 4 14 13.2 14 24.6C14 38.5 35 53 35 53C35 53 56 38.5 56 24.6C56 13.2 46.6 4 35 4Z" fill="url(#pkPinGrad)"/>
+      <!-- Parcel Cube Inside Pin -->
+      <polygon points="35,13 45,18.5 35,24 25,18.5" fill="#ffffff"/>
+      <polygon points="25,18.5 35,24 35,35.5 25,30" fill="#d9f2e4"/>
+      <polygon points="45,18.5 35,24 35,35.5 45,30" fill="#a8e0c2"/>
+      <line x1="30" y1="15.7" x2="40" y2="21.2" stroke="#0b6e4f" stroke-width="1.6" stroke-linecap="round"/>
+      <!-- Wordmark -->
+      <text x="66" y="37" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="30" font-weight="800" letter-spacing="-0.6">
+        <tspan fill="#0f2942">Padala</tspan><tspan fill="#16a34a">Ko</tspan>
+      </text>
+    </svg>
+  </header>
+
+  <h1>Book a Delivery</h1>
+
+  <div id="locNote" class="msg err" hidden>Could not load the province, city and barangay lists. Please type them instead.</div>
+
+  <form id="bookForm" novalidate>
+    <fieldset>
+      <legend>Sender / pickup</legend>
+      <label for="senderName">Sender name *</label>
+      <input id="senderName" required autocomplete="name">
+      <label for="senderPhone">Sender mobile number *</label>
+      <div class="phone">
+        <span class="prefix">+63</span>
+        <input id="senderPhone" type="tel" required autocomplete="tel-national" inputmode="numeric" placeholder="9171234567">
+      </div>
+      <label for="pickupLine">House / Flat No., Subdivision, Street *</label>
+      <input id="pickupLine" required autocomplete="address-line1" placeholder="e.g. #123 Purok 4, Sunrise Subd., Rizal St.">
+      <div class="row addr">
+        <div>
+          <label for="pickupProvince">Province / NCR *</label>
+          <select id="pickupProvince"><option value="">Loading…</option></select>
+          <input id="pickupProvinceTxt" placeholder="Province / NCR" hidden>
+        </div>
+        <div>
+          <label for="pickupCity">Town / City *</label>
+          <select id="pickupCity" disabled><option value="">Select province first</option></select>
+          <input id="pickupCityTxt" placeholder="Town / city" hidden>
+        </div>
+      </div>
+      <label for="pickupBarangay">Barangay</label>
+      <select id="pickupBarangay" disabled><option value="">Select town / city first</option></select>
+      <input id="pickupBarangayTxt" placeholder="Barangay (optional)" hidden>
+      <label for="pickupNotes">Pickup notes</label>
+      <input id="pickupNotes" placeholder="Landmark, gate code, etc.">
+    </fieldset>
+
+    <fieldset>
+      <legend>Recipient / drop-off</legend>
+      <label for="recipientName">Recipient name *</label>
+      <input id="recipientName" required>
+      <label for="recipientPhone">Recipient mobile number *</label>
+      <div class="phone">
+        <span class="prefix">+63</span>
+        <input id="recipientPhone" type="tel" required inputmode="numeric" placeholder="9171234567">
+      </div>
+      <div class="hint">The recipient receives status updates on this number.</div>
+      <label for="dropoffLine">House / Flat No., Subdivision, Street *</label>
+      <input id="dropoffLine" required autocomplete="off" placeholder="e.g. Unit 5B, Green Building, Casanas St.">
+      <div class="row addr">
+        <div>
+          <label for="dropoffProvince">Province / NCR *</label>
+          <select id="dropoffProvince"><option value="">Loading…</option></select>
+          <input id="dropoffProvinceTxt" placeholder="Province / NCR" hidden>
+        </div>
+        <div>
+          <label for="dropoffCity">Town / City *</label>
+          <select id="dropoffCity" disabled><option value="">Select province first</option></select>
+          <input id="dropoffCityTxt" placeholder="Town / city" hidden>
+        </div>
+      </div>
+      <label for="dropoffBarangay">Barangay</label>
+      <select id="dropoffBarangay" disabled><option value="">Select town / city first</option></select>
+      <input id="dropoffBarangayTxt" placeholder="Barangay (optional)" hidden>
+      <label for="dropoffNotes">Drop-off notes</label>
+      <input id="dropoffNotes" placeholder="Landmark, who to ask for, etc.">
+    </fieldset>
+
+    <fieldset>
+      <legend>Vehicle &amp; parcel</legend>
+      <label>Vehicle category *</label>
+      <input type="hidden" id="vehicleType" value="motorcycle">
+      <div class="veh-grid" id="vehGrid">
+        <button type="button" class="veh-btn active" data-veh="motorcycle">
+          <strong>Motorcycle</strong>
+          <span>Up to 20 kg · ₱50 base</span>
+        </button>
+        <button type="button" class="veh-btn" data-veh="car">
+          <strong>Car / Sedan</strong>
+          <span>Up to 200 kg · ₱100 base</span>
+        </button>
+        <button type="button" class="veh-btn" data-veh="van">
+          <strong>Van / L300</strong>
+          <span>Up to 1,000 kg · ₱280 base</span>
+        </button>
+      </div>
+
+      <label for="parcelDescription">What are you sending? *</label>
+      <input id="parcelDescription" required placeholder="e.g. Documents, Clothes, Box of food">
+      <div class="row">
+        <div>
+          <label for="size">Size *</label>
+          <select id="size" required>
+            <option value="small">Small (envelope / shoebox)</option>
+            <option value="medium">Medium</option>
+            <option value="large">Large</option>
+          </select>
+        </div>
+        <div>
+          <label for="weight">Weight (kg) *</label>
+          <input id="weight" type="number" min="0.1" max="20" step="0.1" inputmode="decimal" required placeholder="e.g. 1.5">
+        </div>
+      </div>
+      <label class="check"><input id="fragile" type="checkbox"> Fragile</label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Payment</legend>
+      <label for="payMethod">How will the delivery fee be paid?</label>
+      <select id="payMethod">
+        <option value="cash">Cash to the rider</option>
+        <option value="gcash">GCash</option>
+        <option value="maya">Maya</option>
+      </select>
+      <label for="codAmount">Amount for the rider to collect from the recipient (optional)</label>
+      <input id="codAmount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00">
+    </fieldset>
+
+    <fieldset>
+      <legend>Delivery fee &amp; route map</legend>
+      <div class="hint">We find both addresses on the map and measure the road distance. Fill in both addresses and parcel details first.</div>
+      <button id="calcBtn" type="button" style="margin-top:10px">Calculate delivery fee</button>
+      <div class="hint" style="font-size:.75rem; font-style:italic; margin-top:6px">The customer must shoulder any applicable toll fees, parking fees, or other miscellaneous charges incurred during the trip.</div>
+      <div id="calcMsg" class="hint" style="margin-top:10px"></div>
+      <div id="calcDetail"></div>
+      <div id="bookMapWrap" hidden>
+        <div class="hint" style="margin-top:8px">Drag the <strong>Pickup</strong> or <strong>Drop-off</strong> pin to fine-tune the exact spot, then click <strong>Recalculate with pinned spots</strong>.</div>
+        <div id="bookMap"></div>
+        <div class="map-legend">
+          <span><i class="dot" style="background:#0b6e4f"></i> Pickup (draggable)</span>
+          <span><i class="dot" style="background:#b3261e"></i> Drop-off (draggable)</span>
+          <span><i class="dot" style="background:#0b6e4f;opacity:.6"></i> Route</span>
+        </div>
+        <button id="recalcPinsBtn" type="button" class="secondary" hidden>Recalculate with pinned spots</button>
+      </div>
+    </fieldset>
+
+    <div class="quote"><span>Delivery fee (<span id="quoteVehLabel">Motorcycle</span>)</span><span id="quote">—</span></div>
+
+    <div id="error" class="msg err" role="alert" hidden></div>
+    <button id="submitBtn" class="primary" type="submit">Book delivery</button>
+  </form>
+
+  <div id="success" class="msg ok" hidden>
+    <div>Booked. Your tracking code:</div>
+    <div class="code" id="successCode"></div>
+    <div id="successFee"></div>
+    <div class="hint">Save this code. Share it with the recipient so they can track too.</div>
+  </div>
+
+  <fieldset style="margin-top:22px">
+    <legend>Track a delivery</legend>
+    <label for="trackCode">Tracking code</label>
+    <input id="trackCode" autocapitalize="characters" placeholder="e.g. 1A2B3C4D5E">
+    <button id="trackBtn" type="button" style="margin-top:10px">Track</button>
+    <div id="trackResult" class="hint" style="margin-top:10px"></div>
+    <div id="riderInfo" class="hint"></div>
+    <div id="map" hidden></div>
+    <div id="trackLegend" class="map-legend" hidden>
+      <span><i class="dot" style="background:#0b6e4f"></i> Pickup</span>
+      <span><i class="dot" style="background:#1a56db"></i> Rider</span>
+      <span><i class="dot" style="background:#b3261e"></i> Drop-off</span>
+    </div>
+    <ul id="timeline" class="timeline"></ul>
+  </fieldset>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="config.js"></script>
+<script>
+const db = supabase.createClient(APP_CONFIG.SUPABASE_URL, APP_CONFIG.SUPABASE_ANON_KEY);
+const $ = (id) => document.getElementById(id);
+const peso = (n) => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(n);
+const VEH_LABEL = { motorcycle: 'Motorcycle', car: 'Car / Sedan', van: 'Van / L300' };
+const VEH_MAX_KG = { motorcycle: 20, car: 200, van: 1000 };
+const STATUS_LABEL = {
+  booked: 'Booked', assigned: 'Rider assigned', picked_up: 'Picked up',
+  delivered: 'Delivered', cancelled: 'Cancelled'
+};
+
+function cleanMobile(raw) {
+  let d = String(raw).replace(/[^0-9]/g, '');
+  if (d.length >= 12 && d.startsWith('63')) d = d.slice(2);
+  else if (d.startsWith('0')) d = d.slice(1);
+  return d.slice(0, 10);
+}
+
+['senderPhone', 'recipientPhone'].forEach((id) =>
+  $(id).addEventListener('input', (e) => {
+    const v = cleanMobile(e.target.value);
+    if (e.target.value !== v) e.target.value = v;
+  })
+);
+
+function selectVehicle(v) {
+  $('vehicleType').value = v;
+  $('quoteVehLabel').textContent = VEH_LABEL[v] || 'Motorcycle';
+  const maxKg = VEH_MAX_KG[v];
+  if (maxKg) $('weight').max = String(maxKg);
+  document.querySelectorAll('.veh-btn').forEach((b) => b.classList.toggle('active', b.dataset.veh === v));
+}
+
+$('vehGrid').addEventListener('click', (e) => {
+  const btn = e.target.closest('.veh-btn');
+  if (!btn) return;
+  const v = btn.dataset.veh;
+  if (v === $('vehicleType').value) return;
+  selectVehicle(v);
+  if (!isWeightAllowed()) {
+    clearQuote();
+    $('calcMsg').style.color = 'var(--err)';
+    $('calcMsg').textContent = `Weight exceeds the ${VEH_MAX_KG[v]} kg maximum limit for ${VEH_LABEL[v]}. Please reduce the weight or choose a larger vehicle.`;
+    return;
+  }
+  if (quoteState) requestQuote(Boolean(pinnedCoords.pickup || pinnedCoords.dropoff));
+});
+
+const PSGC = 'https://psgc.gitlab.io/api';
+const NCR = { code: 'NCR', name: 'Metro Manila (NCR)' };
+let PROVINCES = [], CITIES = [], locOK = false;
+const ADDR = ['pickup', 'dropoff'];
+const byName = (a, b) => a.name.localeCompare(b.name, 'en');
+
+function cityInProvince(c, p) {
+  const cc = String(c.code), pc = String(p.code);
+  if (p.code === NCR.code) return c.regionCode === '130000000' || (cc.length === 9 && cc.startsWith('13'));
+  return c.provinceCode === pc || (cc.length === 9 && pc.length === 9 && cc.slice(0, 4) === pc.slice(0, 4));
+}
+
+async function getJSON(path) {
+  const r = await fetch(PSGC + path);
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+const brgyCache = {};
+const brgySeq = { pickup: 0, dropoff: 0 };
+
+function resetBarangay(pre) {
+  if (!locOK) return;
+  brgySeq[pre]++;
+  const bS = $(pre + 'Barangay');
+  bS.replaceChildren(new Option('Select town / city first', ''));
+  bS.disabled = true;
+  bS.hidden = false;
+  $(pre + 'BarangayTxt').hidden = true;
+  $(pre + 'BarangayTxt').value = '';
+}
+
+function resetCity(pre) {
+  if (!locOK) return;
+  const cityS = $(pre + 'City');
+  cityS.replaceChildren(new Option('Select province first', ''));
+  cityS.disabled = true;
+  cityS.hidden = false;
+  $(pre + 'CityTxt').hidden = true;
+  resetBarangay(pre);
+}
+
+function initAddress(pre) {
+  const sel = $(pre + 'Province');
+  if (!locOK) {
+    sel.hidden = true; $(pre + 'City').hidden = true; $(pre + 'Barangay').hidden = true;
+    $(pre + 'ProvinceTxt').hidden = false; $(pre + 'CityTxt').hidden = false; $(pre + 'BarangayTxt').hidden = false;
+    return;
+  }
+  sel.replaceChildren(new Option('Select province / NCR…', ''));
+  PROVINCES.forEach((p) => sel.append(new Option(p.name, p.code)));
+  resetCity(pre);
+}
+
+ADDR.forEach((pre) => {
+  $(pre + 'Province').addEventListener('change', () => {
+    const p = PROVINCES.find((x) => x.code === $(pre + 'Province').value);
+    if (!p) { resetCity(pre); return; }
+    const cityS = $(pre + 'City');
+    const list = CITIES.filter((c) => cityInProvince(c, p)).sort(byName);
+    cityS.hidden = !list.length;
+    $(pre + 'CityTxt').hidden = !!list.length;
+    cityS.replaceChildren(new Option('Select town / city…', ''));
+    list.forEach((c) => {
+      const o = new Option(c.name, c.name);
+      o.dataset.code = c.code;
+      cityS.append(o);
+    });
+    cityS.disabled = !list.length;
+    resetBarangay(pre);
+    if (!list.length) {
+      $(pre + 'Barangay').hidden = true;
+      $(pre + 'BarangayTxt').hidden = false;
+    }
+  });
+
+  $(pre + 'City').addEventListener('change', async () => {
+    const opt = $(pre + 'City').selectedOptions.item(0);
+    const code = opt && opt.dataset.code;
+    resetBarangay(pre);
+    if (!code) return;
+    const seq = brgySeq[pre];
+    const bS = $(pre + 'Barangay');
+    bS.replaceChildren(new Option('Loading barangays…', ''));
+    try {
+      let names = brgyCache[code];
+      if (!names) {
+        const data = await getJSON('/cities-municipalities/' + code + '/barangays/');
+        if (!Array.isArray(data) || !data.length || !data.every((x) => x && typeof x.name === 'string')) {
+          throw new Error('no barangays');
+        }
+        names = data.map((x) => x.name).sort((a, b) => a.localeCompare(b, 'en', { numeric: true }));
+        brgyCache[code] = names;
+      }
+      if (seq !== brgySeq[pre]) return;
+      bS.replaceChildren(new Option('Select barangay…', ''));
+      names.forEach((n) => bS.append(new Option(n, n)));
+      bS.disabled = false;
+    } catch (e) {
+      if (seq !== brgySeq[pre]) return;
+      bS.hidden = true;
+      $(pre + 'BarangayTxt').hidden = false;
+    }
+  });
+});
+
+async function loadLocations() {
+  try {
+    const [prov, cit] = await Promise.all([getJSON('/provinces/'), getJSON('/cities-municipalities/')]);
+    const ok = (x) => x && x.code != null && typeof x.name === 'string';
+    if (!Array.isArray(prov) || !Array.isArray(cit) || prov.length < 50 || cit.length < 1000 ||
+        !prov.every(ok) || !cit.every(ok)) throw new Error('unexpected data');
+    PROVINCES = prov.map((p) => ({ code: String(p.code), name: p.name })).concat([NCR]).sort(byName);
+    CITIES = cit.map((c) => ({
+      code: String(c.code), name: c.name,
+      provinceCode: c.provinceCode ? String(c.provinceCode) : '',
+      regionCode: c.regionCode ? String(c.regionCode) : ''
+    }));
+    locOK = true;
+  } catch (e) {
+    locOK = false;
+    $('locNote').hidden = false;
+  }
+  ADDR.forEach(initAddress);
+}
+
+function addrValue(pre, field) {
+  const sel = $(pre + field), txt = $(pre + field + 'Txt');
+  if (!txt.hidden) return txt.value.trim();
+  if (!sel.value) return '';
+  return field === 'Province' ? sel.selectedOptions.item(0).text : sel.value;
+}
+
+function showError(text) { const e = $('error'); e.textContent = text; e.hidden = !text; }
+
+const FN_URL = APP_CONFIG.SUPABASE_URL + '/functions/v1/delivery-quote';
+let quoteState = null;
+let pinnedCoords = { pickup: null, dropoff: null };
+
+async function callDelivery(payload) {
+  let res;
+  try {
+    res = await fetch(FN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: APP_CONFIG.SUPABASE_ANON_KEY },
+      body: JSON.stringify(payload)
+    });
+  } catch (e) {
+    return { ok: false, error: 'Could not reach the delivery service. Check your internet connection.' };
+  }
+  try { return await res.json(); }
+  catch (e) { return { ok: false, error: 'Unexpected reply from the delivery service.' }; }
+}
+
+const addrObj = (pre) => ({
+  line: $(pre + 'Line').value.trim(),
+  barangay: addrValue(pre, 'Barangay'),
+  city: addrValue(pre, 'City'),
+  province: addrValue(pre, 'Province'),
+  ...(pinnedCoords[pre] ? { lat: pinnedCoords[pre].lat, lng: pinnedCoords[pre].lng } : {})
+});
+
+const currentAddrs = () => ({ pickup: addrObj('pickup'), dropoff: addrObj('dropoff') });
+const addrKey = () => JSON.stringify({ addrs: currentAddrs(), veh: $('vehicleType').value });
+
+function clearQuote(keepBookMap = false) {
+  quoteState = null;
+  $('quote').textContent = '—';
+  $('calcMsg').textContent = '';
+  $('calcDetail').replaceChildren();
+  $('calcBtn').textContent = 'Calculate delivery fee';
+  if (!keepBookMap) {
+    pinnedCoords = { pickup: null, dropoff: null };
+    $('bookMapWrap').hidden = true;
+    $('recalcPinsBtn').hidden = true;
+  }
+}
+
+function isParcelComplete() {
+  const desc = $('parcelDescription').value.trim();
+  const size = $('size').value;
+  const weightVal = parseFloat($('weight').value);
+  return Boolean(desc && size && Number.isFinite(weightVal) && weightVal > 0);
+}
+
+function isWeightAllowed() {
+  const veh = $('vehicleType').value;
+  const max = VEH_MAX_KG[veh];
+  const weightVal = parseFloat($('weight').value);
+  return !max || (Number.isFinite(weightVal) && weightVal <= max);
+}
+
+$('bookForm').addEventListener('input', (e) => {
+  if (/^(pickup|dropoff)(Line|Barangay|Province|City)/.test(e.target.id)) {
+    pinnedCoords = { pickup: null, dropoff: null };
+    if (quoteState && addrKey() !== quoteState.key) clearQuote();
+  }
+  if (e.target.id === 'weight' && $('weight').value !== '' && !isWeightAllowed()) {
+    const veh = $('vehicleType').value;
+    clearQuote();
+    $('calcMsg').style.color = 'var(--err)';
+    $('calcMsg').textContent = `Weight exceeds the ${VEH_MAX_KG[veh]} kg maximum limit for ${VEH_LABEL[veh]}. Please reduce the weight or choose a larger vehicle.`;
+    return;
+  }
+  if (quoteState && (e.target.id === 'parcelDescription' || e.target.id === 'weight') && !isParcelComplete()) {
+    clearQuote(true);
+    $('calcMsg').style.color = 'var(--err)';
+    $('calcMsg').textContent = 'Parcel information is incomplete. Please enter what you are sending, size, and weight to proceed.';
+  } else if (e.target.id === 'weight' && $('calcMsg').style.color === 'var(--err)' && isWeightAllowed()) {
+    $('calcMsg').style.color = '';
+    $('calcMsg').textContent = '';
+  }
+});
+
+$('bookForm').addEventListener('change', (e) => {
+  if (/^(pickup|dropoff)(Line|Barangay|Province|City)/.test(e.target.id)) {
+    pinnedCoords = { pickup: null, dropoff: null };
+    if (quoteState && addrKey() !== quoteState.key) clearQuote();
+  }
+});
+
+$('size').addEventListener('change', async () => {
+  if (!quoteState) return;
+  if (!isParcelComplete()) {
+    clearQuote(true);
+    $('calcMsg').style.color = 'var(--err)';
+    $('calcMsg').textContent = 'Parcel information is incomplete. Please enter what you are sending, size, and weight to proceed.';
+    return;
+  }
+  if (!isWeightAllowed()) {
+    const veh = $('vehicleType').value;
+    clearQuote(true);
+    $('calcMsg').style.color = 'var(--err)';
+    $('calcMsg').textContent = `Weight exceeds the ${VEH_MAX_KG[veh]} kg maximum limit for ${VEH_LABEL[veh]}.`;
+    return;
+  }
+  const { data, error } = await db.rpc('quote_fee', {
+    p_distance_km: quoteState.km,
+    p_size: $('size').value,
+    p_vehicle_type: $('vehicleType').value
+  });
+  $('quote').textContent = error || data == null ? 'Unavailable' : peso(data);
+});
+
+function createTileLayer(targetMap) {
+  const esri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+    maxZoom: 19,
+    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, HERE, Garmin, USGS, Intermap, INCREMENT P, NRCan, Esri Japan, METI, Esri China (Hong Kong), Esri Korea, Esri (Thailand), NGCC, (c) OpenStreetMap contributors, and the GIS User Community'
+  });
+  let fallbackAdded = false;
+  esri.on('tileerror', () => {
+    if (fallbackAdded || !targetMap) return;
+    fallbackAdded = true;
+    targetMap.removeLayer(esri);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      maxZoom: 19,
+      subdomains: 'abcd',
+      attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors &copy; <a href="https://carto.com">CARTO</a>'
+    }).addTo(targetMap);
+  });
+  return esri;
+}
+
+function toLatLng(p) {
+  if (!p) return null;
+  const lat = Number(p.lat);
+  const lng = Number(p.lng ?? p.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+  return [lat, lng];
+}
+
+function makePinIcon(color) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:20px;height:20px;border-radius:50%;background:${color};border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35);cursor:grab;"></div>`,
+    iconSize: [20, 20],
+    iconAnchor: [10, 10]
+  });
+}
+
+async function fetchRoadRoute(points) {
+  const valid = points.map(toLatLng).filter(Boolean);
+  if (valid.length < 2) return null;
+  const coords = valid.map(([lat, lng]) => `${lng},${lat}`).join(';');
+  try {
+    const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`);
+    if (!res.ok) return null;
+    const json = await res.json();
+    const geom = json.routes && json.routes[0] && json.routes[0].geometry && json.routes[0].geometry.coordinates;
+    if (!Array.isArray(geom) || geom.length < 2) return null;
+    return geom.map(([lng, lat]) => [lat, lng]);
+  } catch (e) {
+    return null;
+  }
+}
+
+let bookMap = null, bookLayer = null, bookRouteLayer = null;
+
+function ensureBookMap() {
+  $('bookMapWrap').hidden = false;
+  if (bookMap) return;
+  bookMap = L.map('bookMap');
+  createTileLayer(bookMap).addTo(bookMap);
+  bookRouteLayer = L.layerGroup().addTo(bookMap);
+  bookLayer = L.layerGroup().addTo(bookMap);
+}
+
+async function renderBookMap(pickupObj, dropoffObj, preserveView = false) {
+  const pLL = toLatLng(pinnedCoords.pickup || pickupObj);
+  const dLL = toLatLng(pinnedCoords.dropoff || dropoffObj);
+  if (!pLL && !dLL) { $('bookMapWrap').hidden = true; return; }
+  ensureBookMap();
+  bookLayer.clearLayers();
+  bookRouteLayer.clearLayers();
+
+  const pts = [];
+  if (pLL) {
+    pts.push(pLL);
+    const m = L.marker(pLL, { draggable: true, icon: makePinIcon('#0b6e4f') })
+      .bindTooltip('Pickup (drag to adjust)', { permanent: false })
+      .addTo(bookLayer);
+    m.on('dragend', () => {
+      const pos = m.getLatLng();
+      pinnedCoords.pickup = { lat: Number(pos.lat.toFixed(6)), lng: Number(pos.lng.toFixed(6)) };
+      $('recalcPinsBtn').hidden = false;
+      $('calcMsg').style.color = 'var(--muted)';
+      $('calcMsg').textContent = 'Pickup pin moved. Click "Recalculate with pinned spots" to update the distance and fee.';
+      drawBookRoute();
+    });
+  }
+  if (dLL) {
+    pts.push(dLL);
+    const m = L.marker(dLL, { draggable: true, icon: makePinIcon('#b3261e') })
+      .bindTooltip('Drop-off (drag to adjust)', { permanent: false })
+      .addTo(bookLayer);
+    m.on('dragend', () => {
+      const pos = m.getLatLng();
+      pinnedCoords.dropoff = { lat: Number(pos.lat.toFixed(6)), lng: Number(pos.lng.toFixed(6)) };
+      $('recalcPinsBtn').hidden = false;
+      $('calcMsg').style.color = 'var(--muted)';
+      $('calcMsg').textContent = 'Drop-off pin moved. Click "Recalculate with pinned spots" to update the distance and fee.';
+      drawBookRoute();
+    });
+  }
+
+  await drawBookRoute();
+
+  requestAnimationFrame(() => {
+    bookMap.invalidateSize();
+    if (preserveView) return;
+    if (pts.length === 1) bookMap.setView(pts[0], 16);
+    else if (pts.length > 1) bookMap.fitBounds(L.latLngBounds(pts), { padding: [36, 36], maxZoom: 17 });
+  });
+}
+
+async function drawBookRoute() {
+  if (!bookRouteLayer) return;
+  bookRouteLayer.clearLayers();
+  const markers = bookLayer.getLayers();
+  if (markers.length < 2) return;
+  const pts = markers.map((m) => m.getLatLng());
+  const routeCoords = await fetchRoadRoute(pts);
+  if (routeCoords) {
+    L.polyline(routeCoords, { color: '#0b6e4f', weight: 4, opacity: 0.75 }).addTo(bookRouteLayer);
+  } else {
+    L.polyline(pts, { color: '#0b6e4f', weight: 3, opacity: 0.6, dashArray: '6, 8' }).addTo(bookRouteLayer);
+  }
+}
+
+async function requestQuote(usePins = false) {
+  showError('');
+  $('calcMsg').style.color = '';
+  if (!usePins) pinnedCoords = { pickup: null, dropoff: null };
+  const a = currentAddrs();
+  const veh = $('vehicleType').value;
+  if (['pickup', 'dropoff'].some((k) => !a[k].line || !a[k].province || !a[k].city)) {
+    $('calcMsg').style.color = 'var(--err)';
+    $('calcMsg').textContent = 'Complete both addresses first (street line, province / NCR and town / city).';
+    return;
+  }
+  if (!isParcelComplete()) {
+    clearQuote();
+    $('calcMsg').style.color = 'var(--err)';
+    $('calcMsg').textContent = 'Parcel information is required to proceed. Please enter what you are sending, size, and weight first.';
+    return;
+  }
+  if (!isWeightAllowed()) {
+    clearQuote();
+    $('calcMsg').style.color = 'var(--err)';
+    $('calcMsg').textContent = `Weight exceeds the ${VEH_MAX_KG[veh]} kg maximum limit for ${VEH_LABEL[veh]}. Please reduce the weight or choose a larger vehicle.`;
+    return;
+  }
+  const btn = $('calcBtn');
+  const pinBtn = $('recalcPinsBtn');
+  btn.disabled = true;
+  pinBtn.disabled = true;
+  btn.textContent = 'Calculating…';
+  $('calcMsg').textContent = '';
+  const res = await callDelivery({
+    action: 'quote',
+    pickup: a.pickup,
+    dropoff: a.dropoff,
+    size: $('size').value,
+    weight_kg: parseFloat($('weight').value),
+    parcel_description: $('parcelDescription').value.trim(),
+    vehicle_type: veh
+  });
+  btn.disabled = false;
+  pinBtn.disabled = false;
+  btn.textContent = 'Recalculate delivery fee';
+  if (!res.ok) {
+    clearQuote(usePins);
+    btn.textContent = 'Calculate delivery fee';
+    $('calcMsg').style.color = 'var(--err)';
+    $('calcMsg').textContent = res.error || 'Could not calculate the fee.';
+    return;
+  }
+  $('recalcPinsBtn').hidden = true;
+  quoteState = { token: res.token, km: res.distance_km, key: addrKey() };
+  $('quote').textContent = peso(res.fee);
+  $('calcMsg').style.color = '';
+  $('calcMsg').textContent = res.distance_km + ' km by road (' + (VEH_LABEL[veh] || veh) + (veh === 'motorcycle' ? ', non-expressway route' : '') + ')';
+  const box = $('calcDetail');
+  box.replaceChildren();
+  [['Pickup', res.pickup, 'pickup'], ['Drop-off', res.dropoff, 'dropoff']].forEach(([label, p, key]) => {
+    const d = document.createElement('div');
+    d.className = 'hint';
+    const isPinned = Boolean(pinnedCoords[key]);
+    d.textContent = label + (isPinned ? ' pinned at: ' : ' found at: ') + p.address +
+      (!isPinned && !p.precise ? '  (approximate: drag the pin on the map to adjust)' : '');
+    box.append(d);
+  });
+  await renderBookMap(res.pickup, res.dropoff, usePins);
+}
+
+$('calcBtn').addEventListener('click', () => requestQuote(false));
+$('recalcPinsBtn').addEventListener('click', () => requestQuote(true));
+
+$('bookForm').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  showError('');
+  $('success').hidden = true;
+  const required = ['senderName', 'senderPhone', 'pickupLine', 'recipientName',
+    'recipientPhone', 'dropoffLine', 'parcelDescription', 'weight'];
+  if (required.some((id) => !$(id).value.trim()) || !isParcelComplete()) {
+    showError('Please fill in all fields marked with * including complete parcel information.');
+    return;
+  }
+  if (!isWeightAllowed()) {
+    const veh = $('vehicleType').value;
+    showError(`Weight exceeds the ${VEH_MAX_KG[veh]} kg maximum limit for ${VEH_LABEL[veh]}. Please reduce the weight or choose a larger vehicle.`);
+    return;
+  }
+  if (ADDR.some((pre) => !addrValue(pre, 'Province') || !addrValue(pre, 'City'))) {
+    showError('Please choose the province / NCR and town / city for both addresses.');
+    return;
+  }
+  if (!/^9[0-9]{9}$/.test($('senderPhone').value) || !/^9[0-9]{9}$/.test($('recipientPhone').value)) {
+    showError('Mobile numbers must be 10 digits starting with 9 after +63 (for example 9171234567).');
+    return;
+  }
+  if (!quoteState || quoteState.key !== addrKey()) {
+    showError('Please calculate the delivery fee first (or recalculate it if you changed an address, pin, or vehicle).');
+    return;
+  }
+  const btn = $('submitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Booking…';
+  const a = currentAddrs();
+  const res = await callDelivery({
+    action: 'book',
+    token: quoteState.token,
+    order: {
+      sender_name: $('senderName').value,
+      sender_phone: $('senderPhone').value,
+      pickup: a.pickup,
+      recipient_name: $('recipientName').value,
+      recipient_phone: $('recipientPhone').value,
+      dropoff: a.dropoff,
+      parcel_description: $('parcelDescription').value,
+      parcel_size: $('size').value,
+      parcel_weight_kg: $('weight').value ? parseFloat($('weight').value) : null,
+      is_fragile: $('fragile').checked,
+      vehicle_type: $('vehicleType').value,
+      payment_method: $('payMethod').value,
+      cod_amount: $('codAmount').value ? parseFloat($('codAmount').value) : 0,
+      pickup_notes: $('pickupNotes').value || null,
+      dropoff_notes: $('dropoffNotes').value || null
+    }
+  });
+  btn.disabled = false;
+  btn.textContent = 'Book delivery';
+  if (!res.ok) { showError(res.error || 'Could not book. Please try again.'); return; }
+  $('successCode').textContent = res.tracking_code;
+  $('successFee').textContent = 'Delivery fee: ' + peso(res.delivery_fee);
+  $('success').hidden = false;
+  $('trackCode').value = res.tracking_code;
+  $('bookForm').reset();
+  selectVehicle('motorcycle');
+  ADDR.forEach(resetCity);
+  clearQuote();
+  $('success').scrollIntoView({ behavior: 'smooth', block: 'center' });
+});
+
+let map = null, pinLayer = null, routeLayer = null, trackTimer = null, firstFit = true;
+
+function ensureMap() {
+  $('map').hidden = false;
+  $('trackLegend').hidden = false;
+  if (map) return;
+  map = L.map('map');
+  createTileLayer(map).addTo(map);
+  routeLayer = L.layerGroup().addTo(map);
+  pinLayer = L.layerGroup().addTo(map);
+}
+
+function addPoint(pts, p, color, label) {
+  const ll = toLatLng(p);
+  if (!ll) return null;
+  L.circleMarker(ll, { radius: 9, color: '#fff', weight: 2, fillColor: color, fillOpacity: 1 })
+    .bindTooltip(label, { permanent: false }).addTo(pinLayer);
+  pts.push(ll);
+  return ll;
+}
+
+async function renderMap(d) {
+  const pLL = toLatLng(d.pickup);
+  const dLL = toLatLng(d.dropoff);
+  const rLL = toLatLng(d.rider);
+  if (!rLL && !pLL && !dLL) {
+    $('map').hidden = true;
+    $('trackLegend').hidden = true;
+    return;
+  }
+  ensureMap();
+  pinLayer.clearLayers();
+  routeLayer.clearLayers();
+  const pts = [];
+  addPoint(pts, d.pickup, '#0b6e4f', 'Pickup');
+  addPoint(pts, d.dropoff, '#b3261e', 'Drop-off');
+  addPoint(pts, d.rider, '#1a56db', 'Rider');
+
+  const routeWaypoints = rLL
+    ? (d.status === 'picked_up' ? [rLL, dLL] : [rLL, pLL, dLL]).filter(Boolean)
+    : [pLL, dLL].filter(Boolean);
+
+  if (routeWaypoints.length >= 2) {
+    const routeCoords = await fetchRoadRoute(routeWaypoints);
+    if (routeCoords) {
+      L.polyline(routeCoords, { color: rLL ? '#1a56db' : '#0b6e4f', weight: 4, opacity: 0.75 }).addTo(routeLayer);
+    } else {
+      L.polyline(routeWaypoints, { color: rLL ? '#1a56db' : '#0b6e4f', weight: 3, opacity: 0.6, dashArray: '6, 8' }).addTo(routeLayer);
+    }
+  }
+
+  requestAnimationFrame(() => {
+    map.invalidateSize();
+    if (pts.length === 1) map.setView(pts[0], 16);
+    else if (firstFit || rLL) map.fitBounds(L.latLngBounds(pts), { padding: [32, 32], maxZoom: 17 });
+    firstFit = false;
+  });
+}
+
+function renderInfo(d) {
+  const info = $('riderInfo');
+  info.textContent = '';
+  if (!d.rider) return;
+  const name = d.rider.name || 'Your rider';
+  if (!toLatLng(d.rider) || !d.rider.seen_at) {
+    info.textContent = name + ' is assigned. Live location will appear once they start sharing it.';
+    return;
+  }
+  const mins = Math.max(0, Math.round((Date.now() - new Date(d.rider.seen_at).getTime()) / 60000));
+  info.textContent = name + ' · location updated ' + (mins < 1 ? 'just now' : mins + ' min ago') +
+    (mins > 10 ? ' (may be out of date)' : '');
+}
+
+async function track(code, quiet) {
+  const list = $('timeline');
+  if (!quiet) { list.replaceChildren(); $('trackResult').textContent = 'Checking…'; }
+  const { data, error } = await db.rpc('track_order', { p_code: code });
+  if (error) { if (!quiet) $('trackResult').textContent = 'Could not check right now. Please try again.'; return; }
+  if (!data) {
+    clearInterval(trackTimer);
+    $('trackResult').textContent = 'No delivery found for that code.';
+    $('riderInfo').textContent = '';
+    $('map').hidden = true;
+    $('trackLegend').hidden = true;
+    list.replaceChildren();
+    return;
+  }
+  $('trackResult').textContent = 'Status: ' + (STATUS_LABEL[data.status] || data.status);
+  renderInfo(data);
+  await renderMap(data);
+  list.replaceChildren();
+  (data.events || []).forEach((e) => {
+    const li = document.createElement('li');
+    const a = document.createElement('span');
+    const b = document.createElement('span');
+    a.textContent = STATUS_LABEL[e.status] || e.status;
+    b.textContent = new Date(e.at).toLocaleString('en-PH');
+    li.append(a, b);
+    list.append(li);
+  });
+  if (data.status === 'delivered' || data.status === 'cancelled') clearInterval(trackTimer);
+}
+
+$('trackBtn').addEventListener('click', () => {
+  const code = $('trackCode').value.trim();
+  clearInterval(trackTimer);
+  firstFit = true;
+  if (!code) { $('trackResult').textContent = 'Enter a tracking code.'; return; }
+  track(code, false);
+  trackTimer = setInterval(() => track(code, true), 15000);
+});
+
+loadLocations();
+const urlCode = new URLSearchParams(location.search).get('code');
+if (urlCode) { $('trackCode').value = urlCode; $('trackBtn').click(); }
+</script>
+</body>
+</html>

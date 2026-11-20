@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PadalaKo — Delivery Dispatch Admin Menu</title>
+<style>
+  :root { --bg:#f5f6f8; --card:#fff; --ink:#1b1f24; --muted:#5b6570; --line:#d9dde3; --brand:#0b6e4f; --err:#b3261e; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:16px/1.45 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--ink); }
+  main { max-width:760px; margin:0 auto; padding:16px; }
+  .brand-header { display:flex; align-items:center; gap:10px; margin:4px 0 14px; }
+  .brand-header svg { height:38px; width:auto; display:block; }
+  h1 { font-size:1.3rem; margin:6px 0 14px; }
+  h2 { font-size:1.05rem; margin:0 0 8px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin:0 0 12px; }
+  label { display:block; font-size:.85rem; color:var(--muted); margin-top:8px; }
+  input, select, button { font:inherit; padding:10px 12px; border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--ink); width:100%; }
+  button { cursor:pointer; }
+  button.primary { background:var(--brand); color:#fff; border:0; font-weight:600; }
+  button.danger { color:var(--err); border-color:var(--err); }
+  button:disabled { opacity:.6; cursor:wait; }
+  .top { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .top button, .top select { width:auto; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:10px; }
+  .row > select { flex:2; min-width:150px; }
+  .row > button { flex:1; min-width:90px; }
+  .export-grid { display:grid; grid-template-columns:repeat(2, 1fr); gap:10px; }
+  @media (max-width:520px) { .export-grid { grid-template-columns:1fr; } }
+  .badge { display:inline-block; font-size:.78rem; font-weight:700; padding:2px 8px; border-radius:999px; background:#e8eaee; }
+  .badge.booked { background:#fff3cd; } .badge.assigned { background:#dbeafe; } .badge.picked_up { background:#e0e7ff; }
+  .badge.delivered { background:#d1fae5; } .badge.cancelled { background:#fde2e1; }
+  .muted { color:var(--muted); font-size:.88rem; }
+  .line { margin-top:6px; }
+  .msg { border-radius:10px; padding:10px 12px; margin:10px 0; background:#fdecea; color:var(--err); }
+  a { color:#1a56db; }
+  [hidden] { display:none !important; }
+
+  /* Collapsible Export Styles */
+  details.card > summary {
+    list-style: none;
+    cursor: pointer;
+    font-size: 1.05rem;
+    font-weight: 700;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    user-select: none;
+  }
+  details.card > summary::-webkit-details-marker { display: none; }
+  details.card > summary::after {
+    content: '▼';
+    font-size: 0.75rem;
+    color: var(--muted);
+    transition: transform 0.2s ease;
+  }
+  details.card[open] > summary::after {
+    transform: rotate(180deg);
+  }
+  details.card[open] > summary {
+    margin-bottom: 8px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  /* Date Preset Pills */
+  .presets { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
+  .presets button {
+    width: auto;
+    padding: 5px 10px;
+    font-size: .82rem;
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--ink);
+  }
+  .presets button:hover {
+    background: #e8eaee;
+  }
+</style>
+</head>
+<body>
+<main>
+  <header class="brand-header" aria-label="PadalaKo">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 265 56" role="img" aria-label="PadalaKo Logo">
+      <defs>
+        <linearGradient id="pkPinGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#19b85b"/>
+          <stop offset="100%" stop-color="#0b6e4f"/>
+        </linearGradient>
+      </defs>
+      <!-- Speed trails -->
+      <rect x="2" y="16" width="11" height="3.2" rx="1.6" fill="#19b85b"/>
+      <rect x="0" y="24" width="14" height="3.2" rx="1.6" fill="#19b85b"/>
+      <rect x="3" y="32" width="10" height="3.2" rx="1.6" fill="#19b85b"/>
+      <!-- Location Pin -->
+      <path d="M35 4C23.4 4 14 13.2 14 24.6C14 38.5 35 53 35 53C35 53 56 38.5 56 24.6C56 13.2 46.6 4 35 4Z" fill="url(#pkPinGrad)"/>
+      <!-- Parcel Cube Inside Pin -->
+      <polygon points="35,13 45,18.5 35,24 25,18.5" fill="#ffffff"/>
+      <polygon points="25,18.5 35,24 35,35.5 25,30" fill="#d9f2e4"/>
+      <polygon points="45,18.5 35,24 35,35.5 45,30" fill="#a8e0c2"/>
+      <line x1="30" y1="15.7" x2="40" y2="21.2" stroke="#0b6e4f" stroke-width="1.6" stroke-linecap="round"/>
+      <!-- Wordmark -->
+      <text x="66" y="37" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="30" font-weight="800" letter-spacing="-0.6">
+        <tspan fill="#0f2942">Padala</tspan><tspan fill="#16a34a">Ko</tspan>
+      </text>
+    </svg>
+  </header>
+
+  <section id="loginView">
+    <h1>Dispatch Admin Login</h1>
+    <form id="loginForm" class="card" onsubmit="return false;">
+      <label for="email">Email</label>
+      <input id="email" type="email" autocomplete="username" required>
+      <label for="password">Password</label>
+      <input id="password" type="password" autocomplete="current-password" required>
+      <div id="loginError" class="msg" hidden></div>
+      <button class="primary" type="submit" style="margin-top:14px">Sign in</button>
+    </form>
+  </section>
+
+  <section id="appView" hidden>
+    <div class="top">
+      <h1>Delivery Dispatch Admin Menu</h1>
+      <div class="top">
+        <button id="refreshBtn" type="button">Refresh</button>
+        <button id="signOut" type="button">Sign out</button>
+      </div>
+    </div>
+
+    <details class="card">
+      <summary>Export deliveries to spreadsheet (CSV / Excel)</summary>
+      <div class="export-grid">
+        <div>
+          <label for="expStatus">Status</label>
+          <select id="expStatus">
+            <option value="all">All statuses</option>
+            <option value="booked">Booked (new / unassigned)</option>
+            <option value="assigned">Rider assigned</option>
+            <option value="picked_up">Picked up</option>
+            <option value="delivered">Delivered</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+        <div>
+          <label for="expRider">Rider</label>
+          <select id="expRider">
+            <option value="all">All riders</option>
+            <option value="unassigned">Unassigned only</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="presets">
+        <button type="button" data-preset="today">Today</button>
+        <button type="button" data-preset="yesterday">Yesterday</button>
+        <button type="button" data-preset="7days">Last 7 days</button>
+        <button type="button" data-preset="month">This month</button>
+        <button type="button" data-preset="clear">Clear dates</button>
+      </div>
+
+      <div class="export-grid">
+        <div>
+          <label for="expFrom">From date</label>
+          <input id="expFrom" type="date">
+        </div>
+        <div>
+          <label for="expTo">To date</label>
+          <input id="expTo" type="date">
+        </div>
+      </div>
+      <div class="row">
+        <button id="exportBtn" class="primary" type="button">Download Spreadsheet (.csv)</button>
+      </div>
+      <div id="exportMsg" class="muted line"></div>
+    </details>
+
+    <div class="top" style="margin-bottom:12px">
+      <select id="filter" aria-label="Filter orders">
+        <option value="active">Active orders</option>
+        <option value="booked">New (unassigned)</option>
+        <option value="delivered">Delivered</option>
+        <option value="cancelled">Cancelled</option>
+        <option value="all">All orders</option>
+      </select>
+      <span id="count" class="muted"></span>
+    </div>
+    <div id="listError" class="msg" hidden></div>
+    <div id="orders"></div>
+  </section>
+</main>
+
+<script src="config.js"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script>
+  const db = supabase.createClient(APP_CONFIG.SUPABASE_URL, APP_CONFIG.SUPABASE_ANON_KEY);
+  const $ = (id) => document.getElementById(id);
+  const peso = (n) => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(n);
+  const LABEL = { booked: 'Booked', assigned: 'Rider assigned', picked_up: 'Picked up', delivered: 'Delivered', cancelled: 'Cancelled' };
+  const ACTIVE = ['booked', 'assigned', 'picked_up'];
+  let riders = [];
+  let timer = null;
+
+  function h(tag, attrs, ...kids) {
+    const e = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (k === 'class') e.className = v;
+      else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+      else if (v !== false && v != null) e.setAttribute(k, v === true ? '' : v);
+    }
+    for (const c of kids.flat()) {
+      if (c == null || c === false) continue;
+      e.append(c.nodeType ? c : document.createTextNode(String(c)));
+    }
+    return e;
+  }
+  const tel = (p) => h('a', { href: 'tel:' + String(p).replace(/[^0-9+]/g, '') }, String(p).replace(/^\+63(\d{10})$/, '+63 $1'));
+  const when = (t) => new Date(t).toLocaleString('en-PH');
+  const riderLabel = (r) => (r.profiles && r.profiles.full_name) || ('Rider ' + r.id.slice(0, 4));
+  const isLive = (r) => r.last_seen_at && Date.now() - new Date(r.last_seen_at).getTime() < 10 * 60000;
+
+  function showView(name) { $('loginView').hidden = name !== 'login'; $('appView').hidden = name !== 'app'; }
+  function loginError(t) { const e = $('loginError'); e.textContent = t || ''; e.hidden = !t; }
+  function listError(t) { const e = $('listError'); e.textContent = t || ''; e.hidden = !t; }
+
+  $('loginForm').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    loginError('');
+    const { data, error } = await db.auth.signInWithPassword({ email: $('email').value.trim(), password: $('password').value });
+    if (error) { loginError(error.message); return; }
+    await enter(data.user);
+  });
+  $('signOut').addEventListener('click', async () => {
+    clearInterval(timer);
+    await db.auth.signOut();
+    showView('login');
+  });
+  $('refreshBtn').addEventListener('click', refresh);
+  $('filter').addEventListener('change', refresh);
+
+  /* Quick Date Preset Logic (Asia/Manila) */
+  function phDateString(dateObj) {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(dateObj);
+  }
+
+  document.querySelectorAll('.presets button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const preset = btn.dataset.preset;
+      const now = new Date();
+      const todayStr = phDateString(now);
+
+      if (preset === 'clear') {
+        $('expFrom').value = '';
+        $('expTo').value = '';
+      } else if (preset === 'today') {
+        $('expFrom').value = todayStr;
+        $('expTo').value = todayStr;
+      } else if (preset === 'yesterday') {
+        const yest = new Date(now.getTime() - 86400000);
+        const yestStr = phDateString(yest);
+        $('expFrom').value = yestStr;
+        $('expTo').value = yestStr;
+      } else if (preset === '7days') {
+        const past = new Date(now.getTime() - 6 * 86400000);
+        $('expFrom').value = phDateString(past);
+        $('expTo').value = todayStr;
+      } else if (preset === 'month') {
+        $('expFrom').value = todayStr.slice(0, 8) + '01';
+        $('expTo').value = todayStr;
+      }
+    });
+  });
+
+  async function enter(user) {
+    const { data: prof, error } = await db.from('profiles').select('role').eq('id', user.id).maybeSingle();
+    if (error || !prof || prof.role !== 'admin') {
+      await db.auth.signOut();
+      showView('login');
+      loginError('This account is not an admin.');
+      return;
+    }
+    showView('app');
+    await refresh();
+    clearInterval(timer);
+    timer = setInterval(() => {
+      if (document.activeElement && document.activeElement.tagName === 'SELECT') return;
+      refresh();
+    }, 20000);
+  }
+
+  function syncExportRiders() {
+    const sel = $('expRider');
+    const prev = sel.value;
+    sel.replaceChildren(
+      new Option('All riders', 'all'),
+      new Option('Unassigned only', 'unassigned')
+    );
+    riders.forEach((r) => {
+      sel.append(new Option(riderLabel(r) + (r.vehicle_type ? ' (' + r.vehicle_type + ')' : ''), r.id));
+    });
+    if ([...sel.options].some((o) => o.value === prev)) sel.value = prev;
+  }
+
+  async function refresh() {
+    listError('');
+    const f = $('filter').value;
+    let q = db.from('orders').select('*').order('created_at', { ascending: false }).limit(100);
+    if (f === 'active') q = q.in('status', ACTIVE);
+    else if (f !== 'all') q = q.eq('status', f);
+
+    const [r, o] = await Promise.all([
+      db.from('riders').select('id, vehicle_type, is_active, last_seen_at, profiles(full_name)'),
+      q
+    ]);
+    if (r.error || o.error) { listError((r.error || o.error).message); return; }
+    riders = r.data || [];
+    syncExportRiders();
+    render(o.data || []);
+  }
+
+  function render(orders) {
+    const box = $('orders');
+    box.replaceChildren();
+    $('count').textContent = orders.length + (orders.length === 1 ? ' order' : ' orders');
+    if (!orders.length) { box.append(h('div', { class: 'card muted' }, 'No orders here yet.')); return; }
+    orders.forEach((o) => box.append(card(o)));
+  }
+
+  function card(o) {
+    const open = o.status === 'booked' || o.status === 'assigned';
+    const rider = riders.find((r) => r.id === o.rider_id);
+
+    const parcel = [o.parcel_description, o.parcel_size,
+      o.parcel_weight_kg ? o.parcel_weight_kg + ' kg' : null,
+      o.is_fragile ? 'FRAGILE' : null].filter(Boolean).join(' · ');
+
+    const money = peso(o.delivery_fee) + ' · fee by ' + o.payment_method + ' (' + o.payment_status + ')' +
+      (Number(o.cod_amount) > 0 ? ' · collect ' + peso(o.cod_amount) + ' from recipient' : '');
+
+    const kids = [
+      h('div', { class: 'top' },
+        h('strong', {}, o.tracking_code),
+        h('span', { class: 'badge ' + o.status }, LABEL[o.status] || o.status)),
+      h('div', { class: 'muted' }, 'Booked ' + when(o.created_at) + ' · ' + o.distance_km + ' km'),
+      h('div', { class: 'line' }, h('strong', {}, 'From: '), o.sender_name, ' ', tel(o.sender_phone),
+        h('div', { class: 'muted' }, o.pickup_address + (o.pickup_notes ? ' (' + o.pickup_notes + ')' : ''))),
+      h('div', { class: 'line' }, h('strong', {}, 'To: '), o.recipient_name, ' ', tel(o.recipient_phone),
+        h('div', { class: 'muted' }, o.dropoff_address + (o.dropoff_notes ? ' (' + o.dropoff_notes + ')' : ''))),
+      h('div', { class: 'line' }, h('strong', {}, 'Parcel: '), parcel),
+      h('div', { class: 'line' }, h('strong', {}, 'Money: '), money),
+      h('div', { class: 'line' }, h('strong', {}, 'Rider: '), rider ? riderLabel(rider) : 'Not assigned')
+    ];
+
+    if (open) {
+      const sel = h('select', { 'aria-label': 'Choose rider' }, h('option', { value: '' }, 'Choose rider…'));
+      riders.filter((r) => r.is_active).forEach((r) => {
+        const op = h('option', { value: r.id }, riderLabel(r) + (isLive(r) ? ' · location live' : ''));
+        if (r.id === o.rider_id) op.selected = true;
+        sel.append(op);
+      });
+      kids.push(h('div', { class: 'row' },
+        sel,
+        h('button', { class: 'primary', type: 'button', onclick: () => assign(o, sel.value) },
+          o.status === 'assigned' ? 'Reassign' : 'Assign'),
+        h('button', { class: 'danger', type: 'button', onclick: () => cancelOrder(o) }, 'Cancel')));
+    }
+    return h('div', { class: 'card' }, kids);
+  }
+
+  async function assign(o, riderId) {
+    if (!riderId) { alert('Choose a rider first.'); return; }
+    const { error } = await db.rpc('assign_rider', { p_order: o.id, p_rider: riderId });
+    if (error) alert(error.message);
+    await refresh();
+  }
+
+  async function cancelOrder(o) {
+    if (!confirm('Cancel order ' + o.tracking_code + '?')) return;
+    const { error } = await db.from('orders').update({ status: 'cancelled' }).eq('id', o.id);
+    if (error) alert(error.message);
+    await refresh();
+  }
+
+  function csvCell(val) {
+    if (val === null || val === undefined) return '""';
+    const s = String(val).replace(/"/g, '""');
+    return '"' + s + '"';
+  }
+
+  $('exportBtn').addEventListener('click', async () => {
+    const status = $('expStatus').value;
+    const riderId = $('expRider').value;
+    const fromDate = $('expFrom').value;
+    const toDate = $('expTo').value;
+    const msg = $('exportMsg');
+    const btn = $('exportBtn');
+
+    if (fromDate && toDate && fromDate > toDate) {
+      msg.textContent = 'From date cannot be later than To date.';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Preparing export…';
+    msg.textContent = '';
+
+    try {
+      let q = db.from('orders').select('*').order('created_at', { ascending: false }).limit(5000);
+      if (status !== 'all') q = q.eq('status', status);
+      if (riderId === 'unassigned') q = q.is('rider_id', null);
+      else if (riderId !== 'all') q = q.eq('rider_id', riderId);
+      if (fromDate) q = q.gte('created_at', fromDate + 'T00:00:00+08:00');
+      if (toDate) q = q.lte('created_at', toDate + 'T23:59:59.999+08:00');
+
+      const { data, error } = await q;
+      if (error) { msg.textContent = 'Export failed: ' + error.message; return; }
+      const rows = data || [];
+      if (!rows.length) { msg.textContent = 'No deliveries found matching those filters.'; return; }
+
+      const riderMap = new Map(riders.map((r) => [r.id, riderLabel(r)]));
+      const headers = [
+        'Tracking Code',
+        'Booked At (PH)',
+        'Status',
+        'Rider',
+        'Vehicle Type',
+        'Sender Name',
+        'Sender Phone',
+        'Pickup Address',
+        'Pickup Notes',
+        'Recipient Name',
+        'Recipient Phone',
+        'Drop-off Address',
+        'Drop-off Notes',
+        'Parcel Description',
+        'Parcel Size',
+        'Weight (kg)',
+        'Fragile',
+        'Distance (km)',
+        'Delivery Fee (PHP)',
+        'Payment Method',
+        'Payment Status',
+        'COD Amount (PHP)'
+      ];
+
+      const lines = [headers.map(csvCell).join(',')];
+      rows.forEach((o) => {
+        const rName = o.rider_id ? (riderMap.get(o.rider_id) || o.rider_id) : 'Unassigned';
+        const line = [
+          o.tracking_code,
+          o.created_at ? new Date(o.created_at).toLocaleString('en-PH') : '',
+          LABEL[o.status] || o.status,
+          rName,
+          o.vehicle_type || '',
+          o.sender_name || '',
+          o.sender_phone || '',
+          o.pickup_address || '',
+          o.pickup_notes || '',
+          o.recipient_name || '',
+          o.recipient_phone || '',
+          o.dropoff_address || '',
+          o.dropoff_notes || '',
+          o.parcel_description || '',
+          o.parcel_size || '',
+          o.parcel_weight_kg ?? '',
+          o.is_fragile ? 'Yes' : 'No',
+          o.distance_km ?? '',
+          o.delivery_fee ?? 0,
+          o.payment_method || '',
+          o.payment_status || '',
+          o.cod_amount ?? 0
+        ];
+        lines.push(line.map(csvCell).join(','));
+      });
+
+      const csvContent = '\uFEFF' + lines.join('\r\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const stamp = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = 'deliveries_' + status + '_' + stamp + '.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+
+      msg.textContent = 'Exported ' + rows.length + (rows.length === 1 ? ' delivery.' : ' deliveries.');
+    } catch (err) {
+      msg.textContent = 'Export error: ' + (err.message || err);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Download Spreadsheet (.csv)';
+    }
+  });
+
+  (async () => {
+    const { data } = await db.auth.getSession();
+    if (data && data.session) await enter(data.session.user);
+    else showView('login');
+  })();
+</script>
+</body>
+</html>

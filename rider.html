@@ -1,0 +1,576 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PadalaKo — Rider</title>
+<style>
+  :root { --bg:#f5f6f8; --card:#fff; --ink:#1b1f24; --muted:#5b6570; --line:#d9dde3; --brand:#0b6e4f; --err:#b3261e; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:16px/1.45 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--ink); }
+  main { max-width:560px; margin:0 auto; padding:16px; }
+  .brand-header { display:flex; align-items:center; gap:10px; margin:4px 0 12px; }
+  .brand-header svg { height:36px; width:auto; display:block; }
+  h1 { font-size:1.3rem; margin:6px 0 14px; }
+  h2 { font-size:1.1rem; margin:18px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin:0 0 12px; }
+  .card.avail { border-left:4px solid #f59e0b; }
+  label { display:block; font-size:.9rem; color:var(--muted); margin-top:10px; }
+  input, select, button { font:inherit; padding:12px; border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--ink); width:100%; }
+  button { cursor:pointer; }
+  button.primary { background:var(--brand); color:#fff; border:0; font-weight:600; }
+  button.accept { background:#d97706; color:#fff; border:0; font-weight:600; }
+  button.copy-btn { width:auto; display:inline-block; font-size:.76rem; padding:2px 8px; margin-left:6px; border-radius:6px; background:#f1f3f5; color:var(--ink); border:1px solid var(--line); vertical-align:middle; }
+  button.copy-btn:active { background:#e2e6ea; }
+  button:disabled { opacity:.6; cursor:not-allowed; }
+  .top { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .top button { width:auto; padding:8px 12px; }
+  .ctrl-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  @media (max-width:420px) { .ctrl-grid { grid-template-columns:1fr; } }
+  .wallet-box { border:1px solid var(--line); border-radius:10px; padding:10px 12px; background:#f8fafc; }
+  .wallet-box.credit { background:#e8f4ef; border-color:#b7dfd0; }
+  .wallet-label { font-size:.75rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; }
+  .wallet-box.credit .wallet-label { color:var(--brand); }
+  .wallet-val { font-size:1.35rem; font-weight:700; margin-top:2px; }
+  .wallet-box.credit .wallet-val { color:var(--brand); }
+  .wallet-sub { font-size:.78rem; color:var(--muted); margin-top:2px; }
+  .badge { display:inline-block; font-size:.78rem; font-weight:700; padding:2px 8px; border-radius:999px; background:#e8eaee; }
+  .badge.veh { background:#e8f4ef; color:var(--brand); text-transform:uppercase; }
+  .badge.booked { background:#fef3c7; color:#92400e; }
+  .badge.assigned { background:#dbeafe; } .badge.picked_up { background:#e0e7ff; }
+  .muted { color:var(--muted); font-size:.88rem; }
+  .line { margin-top:8px; }
+  .big { font-size:1.05rem; }
+  .msg { border-radius:10px; padding:10px 12px; margin:10px 0; background:#fdecea; color:var(--err); }
+  .msg.ok { background:#e8f4ef; color:var(--brand); }
+  .note { border-radius:10px; padding:10px 12px; margin:10px 0; background:#e8f4ef; font-size:.9rem; }
+  a { color:#1a56db; }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header class="brand-header" aria-label="PadalaKo">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 265 56" role="img" aria-label="PadalaKo Logo">
+      <defs>
+        <linearGradient id="pkPinGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#19b85b"/>
+          <stop offset="100%" stop-color="#0b6e4f"/>
+        </linearGradient>
+      </defs>
+      <rect x="2" y="16" width="11" height="3.2" rx="1.6" fill="#19b85b"/>
+      <rect x="0" y="24" width="14" height="3.2" rx="1.6" fill="#19b85b"/>
+      <rect x="3" y="32" width="10" height="3.2" rx="1.6" fill="#19b85b"/>
+      <path d="M35 4C23.4 4 14 13.2 14 24.6C14 38.5 35 53 35 53C35 53 56 38.5 56 24.6C56 13.2 46.6 4 35 4Z" fill="url(#pkPinGrad)"/>
+      <polygon points="35,13 45,18.5 35,24 25,18.5" fill="#ffffff"/>
+      <polygon points="25,18.5 35,24 35,35.5 25,30" fill="#d9f2e4"/>
+      <polygon points="45,18.5 35,24 35,35.5 45,30" fill="#a8e0c2"/>
+      <line x1="30" y1="15.7" x2="40" y2="21.2" stroke="#0b6e4f" stroke-width="1.6" stroke-linecap="round"/>
+      <text x="66" y="37" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="30" font-weight="800" letter-spacing="-0.6">
+        <tspan fill="#0f2942">Padala</tspan><tspan fill="#16a34a">Ko</tspan>
+      </text>
+    </svg>
+  </header>
+
+  <section id="loginView">
+    <h1>Rider login</h1>
+    <div id="loginForm" class="card">
+      <label for="email">Email</label>
+      <input id="email" type="email" autocomplete="username" required>
+      <label for="password">Password</label>
+      <input id="password" type="password" autocomplete="current-password" required>
+      <div id="loginError" class="msg" hidden></div>
+      <button id="signInBtn" class="primary" type="button" style="margin-top:14px">Sign in</button>
+    </div>
+  </section>
+
+  <section id="appView" hidden>
+    <div class="top">
+      <h1>Rider Dashboard</h1>
+      <button id="signOut" type="button">Sign out</button>
+    </div>
+    <div class="muted" id="who"></div>
+
+    <!-- Wallet & Load Credit Card -->
+    <div class="card" style="margin-top:12px">
+      <div class="ctrl-grid">
+        <div class="wallet-box credit">
+          <div class="wallet-label">Credit Wallet</div>
+          <div id="displayCreditBalance" class="wallet-val">₱0.00</div>
+          <div class="wallet-sub">20% commission per trip</div>
+        </div>
+        <div class="wallet-box">
+          <div class="wallet-label">COD Limit (Admin Set)</div>
+          <div id="displayCashOnHand" class="wallet-val">₱0.00</div>
+          <div class="wallet-sub">Max COD allowed</div>
+        </div>
+      </div>
+
+      <button id="btnToggleTopup" class="primary" type="button" style="margin-top:10px">+ Load Credit Wallet</button>
+
+      <div id="topupFormBox" hidden style="margin-top:12px; padding-top:12px; border-top:1px solid var(--line);">
+        <div class="note" style="margin-top:0">
+          <strong>How to load credit:</strong><br>
+          1. Send payment via <strong>GCash</strong> to <strong id="masterGcashNum">0998-180-9349</strong> <button type="button" class="copy-btn" onclick="navigator.clipboard?.writeText('09981809349');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)">Copy</button>.<br>
+          2. Enter the exact amount and Reference No. below.<br>
+          3. Admin will credit your wallet once verified.
+        </div>
+
+        <div class="ctrl-grid">
+          <div>
+            <label for="topupAmount" style="margin-top:0">Amount (min ₱50)</label>
+            <input id="topupAmount" type="number" placeholder="e.g. 500" min="50" step="50">
+          </div>
+          <div>
+            <label for="topupMethod" style="margin-top:0">Payment Method</label>
+            <select id="topupMethod">
+              <option value="GCash">GCash</option>
+              <option value="Maya">Maya</option>
+              <option value="Bank">Bank Transfer</option>
+            </select>
+          </div>
+        </div>
+
+        <label for="topupRef">Reference Number</label>
+        <input id="topupRef" type="text" placeholder="Enter GCash / Maya Reference No.">
+
+        <button id="btnSubmitTopup" class="primary" type="button" style="margin-top:10px">Submit Load Request</button>
+        <div id="walletMsg" class="msg" hidden></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="ctrl-grid">
+        <button id="shareBtn" type="button">Share location: OFF</button>
+        <button id="autoBtn" type="button">Auto-accept (≤3 km): OFF</button>
+      </div>
+      <div id="locMsg" class="muted line"></div>
+      <div id="autoMsg" class="muted line"></div>
+      <div class="note" style="margin-bottom:0">Keep this page open and the screen on while delivering. Location sharing and auto-accept pause if the phone locks or you switch apps.</div>
+    </div>
+
+    <div id="jobError" class="msg" hidden></div>
+
+    <h2>Available bookings <span id="availCount" class="badge booked">0</span></h2>
+    <div id="availableJobs"></div>
+
+    <h2>My active deliveries</h2>
+    <div id="jobs"></div>
+  </section>
+</main>
+
+<script>
+  window.addEventListener('error', function (ev) {
+    var box = document.getElementById('loginError');
+    if (box) {
+      box.textContent = 'App error: ' + (ev.message || 'Unknown error');
+      box.hidden = false;
+    }
+  });
+</script>
+<script>
+  document.write('<scr' + 'ipt src="https://cdn.jsdelivr' + '.net/npm/@supabase/supabase-js@2"></scr' + 'ipt>');
+</script>
+<script src="config.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  function loginError(t) { const e = $('loginError'); e.textContent = t || ''; e.hidden = !t; }
+
+  if (typeof window.supabase === 'undefined') {
+    loginError('Could not load Supabase library from unpkg.com. Check your internet connection.');
+    throw new Error('Supabase SDK missing');
+  }
+  if (typeof APP_CONFIG === 'undefined' || !APP_CONFIG.SUPABASE_URL || !APP_CONFIG.SUPABASE_ANON_KEY) {
+    loginError('config.js is missing or incomplete. Make sure config.js is in the same folder as rider.html.');
+    throw new Error('APP_CONFIG missing');
+  }
+
+  const db = window.supabase.createClient(APP_CONFIG.SUPABASE_URL, APP_CONFIG.SUPABASE_ANON_KEY);
+  const peso = (n) => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(n);
+  const LABEL = { assigned: 'Go pick up', picked_up: 'On the way' };
+  const VEH = { motorcycle: 'Motorcycle', car: 'Car / Sedan', van: 'Van / L300' };
+  const AUTO_RADIUS_KM = 3.0;
+
+  let user = null, timer = null, watchId = null, lastSent = 0, wakeLock = null;
+  let lastLat = null, lastLng = null, knownAvailIds = null;
+  let autoAccept = false, activeJobCount = 0, isClaiming = false;
+
+  async function doSignIn() {
+    loginError('');
+    const btn = $('signInBtn');
+    btn.disabled = true;
+    btn.textContent = 'Signing in…';
+    try {
+      const { data, error } = await db.auth.signInWithPassword({
+        email: $('email').value.trim(),
+        password: $('password').value
+      });
+      if (error) { loginError(error.message); return; }
+      await enter(data.user);
+    } catch (err) {
+      loginError('Sign-in failed: ' + (err.message || err));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Sign in';
+    }
+  }
+
+  $('signInBtn').addEventListener('click', doSignIn);
+  $('password').addEventListener('keydown', (e) => { if (e.key === 'Enter') doSignIn(); });
+
+  function h(tag, attrs, ...kids) {
+    const e = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (k === 'class') e.className = v;
+      else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+      else if (v !== false && v != null) e.setAttribute(k, v === true ? '' : v);
+    }
+    for (const c of kids.flat()) {
+      if (c == null || c === false) continue;
+      e.append(c.nodeType ? c : document.createTextNode(String(c)));
+    }
+    return e;
+  }
+  const tel = (p) => h('a', { href: 'tel:' + String(p).replace(/[^0-9+]/g, '') }, String(p).replace(/^\+63(\d{10})$/, '+63 $1'));
+
+  function copyBtn(text, label = 'Copy') {
+    const btn = h('button', {
+      type: 'button',
+      class: 'copy-btn',
+      onclick: async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+        } catch {
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          ta.remove();
+        }
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = label; }, 1500);
+      }
+    }, label);
+    return btn;
+  }
+
+  function beep() {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator(), gain = ctx.createGain();
+      osc.type = 'sine'; osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(); osc.stop(ctx.currentTime + 0.35);
+    } catch (e) { /* audio optional */ }
+  }
+
+  function showView(name) { $('loginView').hidden = name !== 'login'; $('appView').hidden = name !== 'app'; }
+  function jobError(t) { const e = $('jobError'); e.textContent = t || ''; e.hidden = !t; }
+  function locMsg(t) { $('locMsg').textContent = t || ''; }
+  function autoMsg(t) { $('autoMsg').textContent = t || ''; }
+  function walletMsg(t, isOk = false) {
+    const e = $('walletMsg');
+    e.textContent = t || '';
+    e.className = isOk ? 'msg ok' : 'msg';
+    e.hidden = !t;
+  }
+
+  $('btnToggleTopup').addEventListener('click', () => {
+    const box = $('topupFormBox');
+    box.hidden = !box.hidden;
+    if (!box.hidden) walletMsg('');
+  });
+
+  $('btnSubmitTopup').addEventListener('click', async () => {
+    walletMsg('');
+    const amount = parseFloat($('topupAmount').value);
+    const method = $('topupMethod').value;
+    const ref = $('topupRef').value.trim();
+    if (isNaN(amount) || amount < 50) {
+      walletMsg('Minimum load request is ₱50.');
+      return;
+    }
+    if (!ref) {
+      walletMsg('Please enter your payment reference number.');
+      return;
+    }
+    const btn = $('btnSubmitTopup');
+    btn.disabled = true;
+    btn.textContent = 'Submitting…';
+    try {
+      const { error } = await db.rpc('request_credit_topup', {
+        p_amount: amount,
+        p_method: method,
+        p_reference: ref
+      });
+      if (error) {
+        walletMsg(error.message);
+      } else {
+        walletMsg('Load request submitted! Waiting for admin approval.', true);
+        $('topupAmount').value = '';
+        $('topupRef').value = '';
+      }
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Submit Load Request';
+    }
+  });
+
+  async function loadRiderWallet() {
+    if (!user) return;
+    const { data, error } = await db
+      .from('riders')
+      .select('credit_balance, cash_on_hand')
+      .eq('id', user.id)
+      .maybeSingle();
+    if (data && !error) {
+      $('displayCreditBalance').textContent = peso(Number(data.credit_balance || 0));
+      $('displayCashOnHand').textContent = peso(Number(data.cash_on_hand || 0));
+    }
+  }
+
+  function setAutoAccept(enabled) {
+    autoAccept = enabled;
+    $('autoBtn').textContent = 'Auto-accept (≤' + AUTO_RADIUS_KM + ' km): ' + (enabled ? 'ON' : 'OFF');
+    $('autoBtn').className = enabled ? 'primary' : '';
+    if (enabled) {
+      if (watchId === null) startSharing();
+      autoMsg('Auto-accept active: nearest matching job within ' + AUTO_RADIUS_KM + ' km will be claimed automatically when you have no active delivery.');
+    } else {
+      autoMsg('');
+    }
+  }
+
+  $('autoBtn').addEventListener('click', () => {
+    setAutoAccept(!autoAccept);
+    if (autoAccept) refreshAll();
+  });
+
+  $('signOut').addEventListener('click', async () => {
+    setAutoAccept(false);
+    stopSharing();
+    clearInterval(timer);
+    knownAvailIds = null;
+    await db.auth.signOut();
+    showView('login');
+  });
+
+  async function enter(u) {
+    const { data: prof, error } = await db.from('profiles').select('role, full_name').eq('id', u.id).maybeSingle();
+    if (error || !prof || prof.role !== 'rider') {
+      await db.auth.signOut();
+      showView('login');
+      loginError(error ? error.message : 'This account is not a rider.');
+      return;
+    }
+    const { data: riderRow } = await db.from('riders').select('vehicle_type, credit_balance, cash_on_hand').eq('id', u.id).maybeSingle();
+    const vType = (riderRow && riderRow.vehicle_type) || 'motorcycle';
+    user = u;
+    $('who').replaceChildren(
+      'Signed in as ' + (prof.full_name || u.email) + ' ',
+      h('span', { class: 'badge veh' }, VEH[vType] || vType)
+    );
+    if (riderRow) {
+      $('displayCreditBalance').textContent = peso(Number(riderRow.credit_balance || 0));
+      $('displayCashOnHand').textContent = peso(Number(riderRow.cash_on_hand || 0));
+    }
+    showView('app');
+    await refreshAll();
+    clearInterval(timer);
+    timer = setInterval(refreshAll, 6000);
+  }
+
+  async function refreshAll() {
+    await loadRiderWallet();
+    await loadJobs();
+    await loadAvailable();
+  }
+
+  async function loadAvailable() {
+    const { data, error } = await db.rpc('get_available_orders', { p_lat: lastLat, p_lng: lastLng });
+    if (error) { jobError(error.message); return; }
+    const list = data || [];
+    $('availCount').textContent = String(list.length);
+    if (
+      autoAccept &&
+      !isClaiming &&
+      activeJobCount === 0 &&
+      watchId !== null &&
+      lastLat !== null &&
+      lastLng !== null &&
+      document.visibilityState === 'visible' &&
+      list.length > 0
+    ) {
+      const sorted = [...list].sort((a, b) => (a.away_km ?? 9999) - (b.away_km ?? 9999));
+      const nearest = sorted[0];
+      if (nearest && nearest.away_km != null && Number(nearest.away_km) <= AUTO_RADIUS_KM) {
+        isClaiming = true;
+        autoMsg('Auto-accepting nearest booking ' + nearest.tracking_code + ' (' + nearest.away_km + ' km away)…');
+        const { error: claimErr } = await db.rpc('claim_order', { p_order_id: nearest.id });
+        isClaiming = false;
+        if (!claimErr) {
+          beep();
+          autoMsg('Auto-accepted ' + nearest.tracking_code + '!');
+          await refreshAll();
+          return;
+        } else {
+          autoMsg('Auto-accept skipped: ' + claimErr.message);
+        }
+      }
+    }
+    const ids = new Set(list.map((o) => o.id));
+    if (knownAvailIds !== null && list.some((o) => !knownAvailIds.has(o.id))) beep();
+    knownAvailIds = ids;
+    const box = $('availableJobs');
+    box.replaceChildren();
+    if (!list.length) {
+      box.append(h('div', { class: 'card muted' }, 'No new bookings matching your vehicle, credit, or COD limit right now. Checking automatically…'));
+      return;
+    }
+    list.forEach((o) => box.append(availableCard(o)));
+  }
+
+  function availableCard(o) {
+    const away = o.away_km != null ? ' · ' + o.away_km + ' km away' : '';
+    const trip = (o.distance_km != null ? o.distance_km + ' km trip · ' : '') + peso(o.delivery_fee) + ' (' + String(o.payment_method).toUpperCase() + ')';
+    const btn = h('button', {
+      class: 'accept',
+      type: 'button',
+      style: 'margin-top:10px',
+      onclick: async () => {
+        btn.disabled = true;
+        btn.textContent = 'Accepting…';
+        const { error } = await db.rpc('claim_order', { p_order_id: o.id });
+        if (error) alert(error.message);
+        await refreshAll();
+      }
+    }, 'Accept job');
+    return h('div', { class: 'card avail' },
+      h('div', { class: 'top' },
+        h('div', {},
+          h('strong', {}, o.tracking_code),
+          copyBtn(o.tracking_code),
+          ' ',
+          h('span', { class: 'badge veh' }, VEH[o.vehicle_type] || o.vehicle_type || 'Motorcycle')
+        ),
+        h('span', { class: 'badge booked' }, 'New' + away)),
+      h('div', { class: 'line' }, h('strong', {}, 'Pickup: '), o.pickup_address, copyBtn(o.pickup_address)),
+      h('div', { class: 'line' }, h('strong', {}, 'Drop-off: '), o.dropoff_address, copyBtn(o.dropoff_address)),
+      h('div', { class: 'line muted' }, h('strong', {}, 'Details: '), o.parcel_description, ' (', o.parcel_size, ') · ', trip),
+      btn);
+  }
+
+  async function loadJobs() {
+    jobError('');
+    const { data, error } = await db
+      .from('orders')
+      .select('*')
+      .eq('rider_id', user.id)
+      .in('status', ['assigned', 'picked_up'])
+      .order('created_at', { ascending: true });
+    if (error) { jobError(error.message); return; }
+    const box = $('jobs');
+    box.replaceChildren();
+    const list = data || [];
+    activeJobCount = list.length;
+    if (!list.length) {
+      box.append(h('div', { class: 'card muted' }, 'No active deliveries right now.'));
+      return;
+    }
+    list.forEach((o) => {
+      const next = o.status === 'assigned' ? 'picked_up' : 'delivered';
+      const parcel = o.parcel_description + ' (' + o.parcel_size +
+        (o.parcel_weight_kg ? ', ' + o.parcel_weight_kg + ' kg' : '') +
+        (o.is_fragile ? ', FRAGILE' : '') + ')';
+      const collect = [];
+      if (o.payment_method === 'cash') collect.push('Collect fee: ' + peso(o.delivery_fee));
+      if (Number(o.cod_amount) > 0) collect.push('Collect COD: ' + peso(o.cod_amount));
+      box.append(
+        h('div', { class: 'card' },
+          h('div', { class: 'top' },
+            h('div', {}, h('strong', {}, o.tracking_code), copyBtn(o.tracking_code), ' ', h('span', { class: 'badge veh' }, VEH[o.vehicle_type] || o.vehicle_type || 'Motorcycle')),
+            h('span', { class: 'badge ' + o.status }, LABEL[o.status] || o.status)
+          ),
+          h('div', { class: 'line big' }, h('strong', {}, 'Pickup: '), o.sender_name, ' ', tel(o.sender_phone),
+            h('div', { class: 'muted' }, o.pickup_address + (o.pickup_notes ? ' (' + o.pickup_notes + ')' : ''), copyBtn(o.pickup_address))
+          ),
+          h('div', { class: 'line big' }, h('strong', {}, 'Drop-off: '), o.recipient_name, ' ', tel(o.recipient_phone),
+            h('div', { class: 'muted' }, o.dropoff_address + (o.dropoff_notes ? ' (' + o.dropoff_notes + ')' : ''), copyBtn(o.dropoff_address))
+          ),
+          h('div', { class: 'line' }, h('strong', {}, 'Parcel: '), parcel),
+          collect.length ? h('div', { class: 'note' }, collect.join(' · ')) : null,
+          h('button', { class: 'primary', type: 'button', style: 'margin-top:10px', onclick: () => advance(o, next) },
+            next === 'picked_up' ? 'Picked up' : 'Delivered')
+        )
+      );
+    });
+  }
+
+  async function advance(o, next) {
+    if (next === 'delivered' && !confirm('Confirm this parcel was delivered?')) return;
+    const { data, error } = await db.rpc('rider_update_status', { p_order: o.id, p_status: next });
+    if (error) {
+      alert(error.message);
+      return;
+    }
+    if (next === 'delivered' && data && typeof data === 'object') {
+      if (data.new_credit_balance != null) {
+        $('displayCreditBalance').textContent = peso(Number(data.new_credit_balance));
+      }
+      if (data.commission_deducted != null) {
+        alert('Delivered! 20% commission deducted: ' + peso(Number(data.commission_deducted)) +
+          '\nRemaining Credit Balance: ' + peso(Number(data.new_credit_balance ?? 0)));
+      }
+    }
+    await refreshAll();
+  }
+
+  async function requestWake() {
+    try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) { /* optional */ }
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && watchId !== null) requestWake();
+  });
+
+  function startSharing() {
+    if (!navigator.geolocation) { locMsg('This browser cannot share location.'); return; }
+    watchId = navigator.geolocation.watchPosition(async (pos) => {
+      lastLat = pos.coords.latitude;
+      lastLng = pos.coords.longitude;
+      const now = Date.now();
+      if (now - lastSent < 15000) return;
+      lastSent = now;
+      const { error } = await db.rpc('rider_update_location', { p_lat: lastLat, p_lng: lastLng });
+      locMsg(error ? 'Could not send location: ' + error.message : 'Location sent ' + new Date().toLocaleTimeString('en-PH'));
+    }, (err) => {
+      locMsg('Location problem: ' + err.message);
+      stopSharing();
+    }, { enableHighAccuracy: true, maximumAge: 10000, timeout: 30000 });
+    $('shareBtn').textContent = 'Share location: ON';
+    $('shareBtn').className = 'primary';
+    locMsg('Waiting for GPS…');
+    requestWake();
+  }
+
+  function stopSharing() {
+    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+    if (autoAccept) setAutoAccept(false);
+    if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+    $('shareBtn').textContent = 'Share location: OFF';
+    $('shareBtn').className = '';
+  }
+
+  $('shareBtn').addEventListener('click', () => { if (watchId === null) startSharing(); else { stopSharing(); locMsg(''); } });
+
+  (async () => {
+    const { data } = await db.auth.getSession();
+    if (data && data.session) await enter(data.session.user);
+    else showView('login');
+  })();
+</script>
+</body>
+</html>
