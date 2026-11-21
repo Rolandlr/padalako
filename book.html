@@ -242,6 +242,7 @@
         <div class="rc-tag">Assigned Rider</div>
         <div id="acceptedRiderName" class="rc-name"></div>
         <div class="rc-meta"><span id="acceptedRiderVehicle"></span> · Plate No.: <strong id="acceptedRiderPlate" style="color:var(--ink)"></strong></div>
+        <div id="acceptedRiderPhoneRow" class="rc-meta" style="margin-top:2px" hidden>Mobile: <a id="acceptedRiderPhone" href="tel:" style="color:var(--brand);font-weight:600;text-decoration:none"></a></div>
       </div>
     </div>
     <div id="riderInfo" class="hint"></div>
@@ -900,6 +901,13 @@ async function renderAcceptedRider(code, d) {
   $('acceptedRiderName').textContent = rInfo.name || (d.rider && d.rider.name) || 'Assigned Rider';
   $('acceptedRiderVehicle').textContent = VEH_LABEL[rInfo.vehicle_type] || rInfo.vehicle_type || 'Motorcycle';
   $('acceptedRiderPlate').textContent = rInfo.plate_number || 'Pending';
+  if (rInfo.phone) {
+    $('acceptedRiderPhone').textContent = rInfo.phone;
+    $('acceptedRiderPhone').href = 'tel:' + rInfo.phone;
+    $('acceptedRiderPhoneRow').hidden = false;
+  } else {
+    $('acceptedRiderPhoneRow').hidden = true;
+  }
   if (rInfo.photo_url) {
     $('acceptedRiderPhoto').src = rInfo.photo_url;
     $('acceptedRiderPhoto').hidden = false;
