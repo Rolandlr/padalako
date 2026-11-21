@@ -46,6 +46,11 @@
   .map-legend { display:flex; flex-wrap:wrap; gap:12px; font-size:.78rem; color:var(--muted); margin-top:8px; }
   .map-legend span { display:inline-flex; align-items:center; gap:5px; }
   .dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
+  .rider-card { display:flex; align-items:center; gap:12px; background:#e8f4ef; border:1px solid #b7dfd0; border-radius:10px; padding:10px 12px; margin-top:10px; }
+  .rider-card img { width:58px; height:58px; border-radius:50%; object-fit:cover; border:2px solid var(--brand); background:#fff; flex-shrink:0; }
+  .rider-card .rc-tag { font-size:.72rem; font-weight:700; color:var(--brand); text-transform:uppercase; letter-spacing:.04em; }
+  .rider-card .rc-name { font-size:1.05rem; font-weight:700; color:var(--ink); }
+  .rider-card .rc-meta { font-size:.86rem; color:var(--muted); }
   [hidden] { display:none !important; }
 </style>
 </head>
@@ -231,6 +236,14 @@
     <input id="trackCode" autocapitalize="characters" placeholder="e.g. 1A2B3C4D5E">
     <button id="trackBtn" type="button" style="margin-top:10px">Track</button>
     <div id="trackResult" class="hint" style="margin-top:10px"></div>
+    <div id="acceptedRiderCard" class="rider-card" hidden>
+      <img id="acceptedRiderPhoto" src="" alt="Rider Photo" hidden>
+      <div>
+        <div class="rc-tag">Assigned Rider</div>
+        <div id="acceptedRiderName" class="rc-name"></div>
+        <div class="rc-meta"><span id="acceptedRiderVehicle"></span> · Plate No.: <strong id="acceptedRiderPlate" style="color:var(--ink)"></strong></div>
+      </div>
+    </div>
     <div id="riderInfo" class="hint"></div>
     <div id="map" hidden></div>
     <div id="trackLegend" class="map-legend" hidden>
@@ -791,6 +804,7 @@ $('bookForm').addEventListener('submit', async (ev) => {
   $('successFee').textContent = 'Delivery fee: ' + peso(res.delivery_fee);
   $('success').hidden = false;
   $('trackCode').value = res.tracking_code;
+  $('trackBtn').click();
   $('bookForm').reset();
   selectVehicle('motorcycle');
   ADDR.forEach(resetCity);
@@ -871,15 +885,43 @@ function renderInfo(d) {
     (mins > 10 ? ' (may be out of date)' : '');
 }
 
+async function renderAcceptedRider(code, d) {
+  const card = $('acceptedRiderCard');
+  if (!['assigned', 'picked_up', 'delivered'].includes(d.status)) {
+    card.hidden = true;
+    return;
+  }
+  const { data: rInfo } = await db.rpc('get_accepted_rider_info', { p_tracking_code: code });
+  if (!rInfo) {
+    card.hidden = true;
+    return;
+  }
+  card.hidden = false;
+  $('acceptedRiderName').textContent = rInfo.name || (d.rider && d.rider.name) || 'Assigned Rider';
+  $('acceptedRiderVehicle').textContent = VEH_LABEL[rInfo.vehicle_type] || rInfo.vehicle_type || 'Motorcycle';
+  $('acceptedRiderPlate').textContent = rInfo.plate_number || 'Pending';
+  if (rInfo.photo_url) {
+    $('acceptedRiderPhoto').src = rInfo.photo_url;
+    $('acceptedRiderPhoto').hidden = false;
+  } else {
+    $('acceptedRiderPhoto').hidden = true;
+  }
+}
+
 async function track(code, quiet) {
   const list = $('timeline');
-  if (!quiet) { list.replaceChildren(); $('trackResult').textContent = 'Checking…'; }
+  if (!quiet) {
+    list.replaceChildren();
+    $('trackResult').textContent = 'Checking…';
+    $('acceptedRiderCard').hidden = true;
+  }
   const { data, error } = await db.rpc('track_order', { p_code: code });
   if (error) { if (!quiet) $('trackResult').textContent = 'Could not check right now. Please try again.'; return; }
   if (!data) {
     clearInterval(trackTimer);
     $('trackResult').textContent = 'No delivery found for that code.';
     $('riderInfo').textContent = '';
+    $('acceptedRiderCard').hidden = true;
     $('map').hidden = true;
     $('trackLegend').hidden = true;
     list.replaceChildren();
@@ -887,6 +929,7 @@ async function track(code, quiet) {
   }
   $('trackResult').textContent = 'Status: ' + (STATUS_LABEL[data.status] || data.status);
   renderInfo(data);
+  await renderAcceptedRider(code, data);
   await renderMap(data);
   list.replaceChildren();
   (data.events || []).forEach((e) => {

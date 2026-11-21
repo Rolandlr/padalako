@@ -174,6 +174,35 @@
       <div id="exportMsg" class="muted line"></div>
     </details>
 
+    <details class="card">
+      <summary>Rider Profiles (Photo &amp; Plate Number)</summary>
+      <div class="export-grid">
+        <div>
+          <label for="mgrRider">Select Rider</label>
+          <select id="mgrRider">
+            <option value="">Choose a rider…</option>
+          </select>
+        </div>
+        <div>
+          <label for="mgrPlate">Vehicle Plate Number</label>
+          <input id="mgrPlate" type="text" placeholder="e.g. 123-ABC">
+        </div>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:12px; margin-top:12px;">
+        <img id="mgrPreview" src="" alt="Rider Photo" hidden style="width:56px; height:56px; border-radius:50%; object-fit:cover; border:1px solid var(--line);">
+        <div style="flex:1;">
+          <label for="mgrPhoto" style="margin-top:0">Upload / Replace Rider Photo</label>
+          <input id="mgrPhoto" type="file" accept="image/*">
+        </div>
+      </div>
+
+      <div class="row">
+        <button id="saveRiderBtn" class="primary" type="button">Save Rider Photo &amp; Plate</button>
+      </div>
+      <div id="mgrMsg" class="muted line"></div>
+    </details>
+
     <div class="top" style="margin-bottom:12px">
       <select id="filter" aria-label="Filter orders">
         <option value="active">Active orders</option>
@@ -282,7 +311,7 @@
     await refresh();
     clearInterval(timer);
     timer = setInterval(() => {
-      if (document.activeElement && document.activeElement.tagName === 'SELECT') return;
+      if (document.activeElement && (document.activeElement.tagName === 'SELECT' || document.activeElement.tagName === 'INPUT')) return;
       refresh();
     }, 20000);
   }
@@ -298,6 +327,15 @@
       sel.append(new Option(riderLabel(r) + (r.vehicle_type ? ' (' + r.vehicle_type + ')' : ''), r.id));
     });
     if ([...sel.options].some((o) => o.value === prev)) sel.value = prev;
+
+    const mgrSel = $('mgrRider');
+    const prevMgr = mgrSel.value;
+    mgrSel.replaceChildren(new Option('Choose a rider…', ''));
+    riders.forEach((r) => {
+      const plateTag = r.plate_no ? ' [' + r.plate_no + ']' : ' [No plate]';
+      mgrSel.append(new Option(riderLabel(r) + plateTag, r.id));
+    });
+    if ([...mgrSel.options].some((o) => o.value === prevMgr)) mgrSel.value = prevMgr;
   }
 
   async function refresh() {
@@ -308,7 +346,7 @@
     else if (f !== 'all') q = q.eq('status', f);
 
     const [r, o] = await Promise.all([
-      db.from('riders').select('id, vehicle_type, is_active, last_seen_at, profiles(full_name)'),
+      db.from('riders').select('id, vehicle_type, plate_no, is_active, last_seen_at, profiles(full_name, avatar_url)'),
       q
     ]);
     if (r.error || o.error) { listError((r.error || o.error).message); return; }
@@ -336,6 +374,10 @@
     const money = peso(o.delivery_fee) + ' · fee by ' + o.payment_method + ' (' + o.payment_status + ')' +
       (Number(o.cod_amount) > 0 ? ' · collect ' + peso(o.cod_amount) + ' from recipient' : '');
 
+    const riderText = rider
+      ? riderLabel(rider) + (rider.plate_no ? ' (Plate: ' + rider.plate_no + ')' : '')
+      : 'Not assigned';
+
     const kids = [
       h('div', { class: 'top' },
         h('strong', {}, o.tracking_code),
@@ -347,7 +389,7 @@
         h('div', { class: 'muted' }, o.dropoff_address + (o.dropoff_notes ? ' (' + o.dropoff_notes + ')' : ''))),
       h('div', { class: 'line' }, h('strong', {}, 'Parcel: '), parcel),
       h('div', { class: 'line' }, h('strong', {}, 'Money: '), money),
-      h('div', { class: 'line' }, h('strong', {}, 'Rider: '), rider ? riderLabel(rider) : 'Not assigned')
+      h('div', { class: 'line' }, h('strong', {}, 'Rider: '), riderText)
     ];
 
     if (open) {
@@ -490,6 +532,78 @@
     } finally {
       btn.disabled = false;
       btn.textContent = 'Download Spreadsheet (.csv)';
+    }
+  });
+
+  /* Rider Photo & Plate Management */
+  $('mgrRider').addEventListener('change', () => {
+    $('mgrMsg').textContent = '';
+    $('mgrPhoto').value = '';
+    const r = riders.find((x) => x.id === $('mgrRider').value);
+    if (!r) {
+      $('mgrPlate').value = '';
+      $('mgrPreview').hidden = true;
+      return;
+    }
+    $('mgrPlate').value = r.plate_no || '';
+    const avatar = r.profiles && r.profiles.avatar_url;
+    if (avatar) {
+      $('mgrPreview').src = avatar;
+      $('mgrPreview').hidden = false;
+    } else {
+      $('mgrPreview').hidden = true;
+    }
+  });
+
+  $('saveRiderBtn').addEventListener('click', async () => {
+    const riderId = $('mgrRider').value;
+    const plate = $('mgrPlate').value.trim().toUpperCase();
+    const file = $('mgrPhoto').files && $('mgrPhoto').files[0];
+    const msg = $('mgrMsg');
+    const btn = $('saveRiderBtn');
+
+    if (!riderId) { msg.textContent = 'Please select a rider first.'; return; }
+
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    msg.textContent = '';
+
+    try {
+      const { error: plateErr } = await db
+        .from('riders')
+        .update({ plate_no: plate || null })
+        .eq('id', riderId);
+      if (plateErr) throw plateErr;
+
+      if (file) {
+        const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+        const filePath = `${riderId}/verified_avatar.${ext}`;
+        const { error: upErr } = await db.storage
+          .from('avatars')
+          .upload(filePath, file, { upsert: true });
+        if (upErr) throw upErr;
+
+        const { data: urlData } = db.storage.from('avatars').getPublicUrl(filePath);
+        const freshUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+
+        const { error: profErr } = await db
+          .from('profiles')
+          .update({ avatar_url: freshUrl })
+          .eq('id', riderId);
+        if (profErr) throw profErr;
+
+        $('mgrPreview').src = freshUrl;
+        $('mgrPreview').hidden = false;
+      }
+
+      $('mgrPhoto').value = '';
+      msg.textContent = 'Rider profile saved!';
+      await refresh();
+    } catch (err) {
+      msg.textContent = 'Save failed: ' + (err.message || err);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Save Rider Photo & Plate';
     }
   });
 
