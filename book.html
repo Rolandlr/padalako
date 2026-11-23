@@ -11,7 +11,7 @@
   * { box-sizing: border-box; }
   body { margin:0; font:16px/1.45 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--ink); }
   main { max-width:560px; margin:0 auto; padding:16px; }
-  .brand-header { display:flex; align-items:center; gap:10px; margin:4px 0 14px; }
+  .brand-header { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:4px 0 14px; }
   .brand-header svg { height:38px; width:auto; display:block; }
   h1 { font-size:1.4rem; margin:8px 0 16px; }
   fieldset { background:var(--card); border:1px solid var(--line); border-radius:12px; margin:0 0 14px; padding:12px 14px 14px; }
@@ -51,6 +51,11 @@
   .rider-card .rc-tag { font-size:.72rem; font-weight:700; color:var(--brand); text-transform:uppercase; letter-spacing:.04em; }
   .rider-card .rc-name { font-size:1.05rem; font-weight:700; color:var(--ink); }
   .rider-card .rc-meta { font-size:.86rem; color:var(--muted); }
+  .auth-tabs { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
+  .auth-tab { padding:10px; border:2px solid var(--line); border-radius:8px; background:#fff; font-weight:600; cursor:pointer; text-align:center; }
+  .auth-tab.active { border-color:var(--brand); background:#e8f4ef; color:var(--brand); }
+  .user-bar { display:flex; justify-content:space-between; align-items:center; gap:10px; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 14px; margin-bottom:14px; font-size:.88rem; }
+  .user-bar button { width:auto; padding:6px 12px; margin:0; }
   [hidden] { display:none !important; }
 </style>
 </head>
@@ -82,178 +87,237 @@
     </svg>
   </header>
 
-  <h1>Book a Delivery</h1>
-
-  <div id="locNote" class="msg err" hidden>Could not load the province, city and barangay lists. Please type them instead.</div>
-
-  <form id="bookForm" novalidate>
+  <!-- REGISTRATION & SIGN IN GATE -->
+  <section id="authSection">
+    <h1>Sign In / Register</h1>
     <fieldset>
-      <legend>Sender / pickup</legend>
-      <label for="senderName">Sender name *</label>
-      <input id="senderName" required autocomplete="name">
-      <label for="senderPhone">Sender mobile number *</label>
-      <div class="phone">
-        <span class="prefix">+63</span>
-        <input id="senderPhone" type="tel" required autocomplete="tel-national" inputmode="numeric" placeholder="9171234567">
-      </div>
-      <label for="pickupLine">House / Flat No., Subdivision, Street *</label>
-      <input id="pickupLine" required autocomplete="address-line1" placeholder="e.g. #123 Purok 4, Sunrise Subd., Rizal St.">
-      <div class="row addr">
-        <div>
-          <label for="pickupProvince">Province / NCR *</label>
-          <select id="pickupProvince"><option value="">Loading…</option></select>
-          <input id="pickupProvinceTxt" placeholder="Province / NCR" hidden>
-        </div>
-        <div>
-          <label for="pickupCity">Town / City *</label>
-          <select id="pickupCity" disabled><option value="">Select province first</option></select>
-          <input id="pickupCityTxt" placeholder="Town / city" hidden>
-        </div>
-      </div>
-      <label for="pickupBarangay">Barangay</label>
-      <select id="pickupBarangay" disabled><option value="">Select town / city first</option></select>
-      <input id="pickupBarangayTxt" placeholder="Barangay (optional)" hidden>
-      <label for="pickupNotes">Pickup notes</label>
-      <input id="pickupNotes" placeholder="Landmark, gate code, etc.">
-    </fieldset>
+      <legend>Verify your account</legend>
+      <div class="hint">Register or sign in as a Sender or Receiver using your email or mobile number. We will send a one-time password (OTP) to verify.</div>
 
-    <fieldset>
-      <legend>Recipient / drop-off</legend>
-      <label for="recipientName">Recipient name *</label>
-      <input id="recipientName" required>
-      <label for="recipientPhone">Recipient mobile number *</label>
-      <div class="phone">
-        <span class="prefix">+63</span>
-        <input id="recipientPhone" type="tel" required inputmode="numeric" placeholder="9171234567">
-      </div>
-      <div class="hint">The recipient receives status updates on this number.</div>
-      <label for="dropoffLine">House / Flat No., Subdivision, Street *</label>
-      <input id="dropoffLine" required autocomplete="off" placeholder="e.g. Unit 5B, Green Building, Casanas St.">
-      <div class="row addr">
-        <div>
-          <label for="dropoffProvince">Province / NCR *</label>
-          <select id="dropoffProvince"><option value="">Loading…</option></select>
-          <input id="dropoffProvinceTxt" placeholder="Province / NCR" hidden>
-        </div>
-        <div>
-          <label for="dropoffCity">Town / City *</label>
-          <select id="dropoffCity" disabled><option value="">Select province first</option></select>
-          <input id="dropoffCityTxt" placeholder="Town / city" hidden>
-        </div>
-      </div>
-      <label for="dropoffBarangay">Barangay</label>
-      <select id="dropoffBarangay" disabled><option value="">Select town / city first</option></select>
-      <input id="dropoffBarangayTxt" placeholder="Barangay (optional)" hidden>
-      <label for="dropoffNotes">Drop-off notes</label>
-      <input id="dropoffNotes" placeholder="Landmark, who to ask for, etc.">
-    </fieldset>
-
-    <fieldset>
-      <legend>Vehicle &amp; parcel</legend>
-      <label>Vehicle category *</label>
-      <input type="hidden" id="vehicleType" value="motorcycle">
-      <div class="veh-grid" id="vehGrid">
-        <button type="button" class="veh-btn active" data-veh="motorcycle">
-          <strong>Motorcycle</strong>
-          <span>Up to 20 kg · ₱50 base</span>
-        </button>
-        <button type="button" class="veh-btn" data-veh="car">
-          <strong>Car / Sedan</strong>
-          <span>Up to 200 kg · ₱100 base</span>
-        </button>
-        <button type="button" class="veh-btn" data-veh="van">
-          <strong>Van / L300</strong>
-          <span>Up to 1,000 kg · ₱280 base</span>
-        </button>
-      </div>
-
-      <label for="parcelDescription">What are you sending? *</label>
-      <input id="parcelDescription" required placeholder="e.g. Documents, Clothes, Box of food">
-      <div class="row">
-        <div>
-          <label for="size">Size *</label>
-          <select id="size" required>
-            <option value="small">Small (envelope / shoebox)</option>
-            <option value="medium">Medium</option>
-            <option value="large">Large</option>
-          </select>
-        </div>
-        <div>
-          <label for="weight">Weight (kg) *</label>
-          <input id="weight" type="number" min="0.1" max="20" step="0.1" inputmode="decimal" required placeholder="e.g. 1.5">
-        </div>
-      </div>
-      <label class="check"><input id="fragile" type="checkbox"> Fragile</label>
-    </fieldset>
-
-    <fieldset>
-      <legend>Payment</legend>
-      <label for="payMethod">How will the delivery fee be paid?</label>
-      <select id="payMethod">
-        <option value="cash">Cash to the rider</option>
-        <option value="gcash">GCash</option>
-        <option value="maya">Maya</option>
+      <label for="authRole">I am a *</label>
+      <select id="authRole">
+        <option value="sender">Sender</option>
+        <option value="receiver">Receiver</option>
       </select>
-      <label for="codAmount">Amount for the rider to collect from the recipient (optional)</label>
-      <input id="codAmount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00">
-    </fieldset>
 
-    <fieldset>
-      <legend>Delivery fee &amp; route map</legend>
-      <div class="hint">We find both addresses on the map and measure the road distance. Fill in both addresses and parcel details first.</div>
-      <button id="calcBtn" type="button" style="margin-top:10px">Calculate delivery fee</button>
-      <div class="hint" style="font-size:.75rem; font-style:italic; margin-top:6px">The customer must shoulder any applicable toll fees, parking fees, or other miscellaneous charges incurred during the trip.</div>
-      <div id="calcMsg" class="hint" style="margin-top:10px"></div>
-      <div id="calcDetail"></div>
-      <div id="bookMapWrap" hidden>
-        <div class="hint" style="margin-top:8px">Drag the <strong>Pickup</strong> or <strong>Drop-off</strong> pin to fine-tune the exact spot, then click <strong>Recalculate with pinned spots</strong>.</div>
-        <div id="bookMap"></div>
-        <div class="map-legend">
-          <span><i class="dot" style="background:#0b6e4f"></i> Pickup (draggable)</span>
-          <span><i class="dot" style="background:#b3261e"></i> Drop-off (draggable)</span>
-          <span><i class="dot" style="background:#0b6e4f;opacity:.6"></i> Route</span>
+      <label for="authFullName">Full Name (required for new registration)</label>
+      <input id="authFullName" autocomplete="name" placeholder="e.g. Juan Dela Cruz">
+
+      <label>Verification Method *</label>
+      <div class="auth-tabs">
+        <button type="button" class="auth-tab active" data-method="email">Email OTP</button>
+        <button type="button" class="auth-tab" data-method="sms">Mobile SMS OTP</button>
+      </div>
+
+      <div id="emailInputWrap">
+        <label for="authEmail">Email address *</label>
+        <input id="authEmail" type="email" autocomplete="email" placeholder="you@example.com">
+      </div>
+
+      <div id="phoneInputWrap" hidden>
+        <label for="authPhone">Mobile number *</label>
+        <div class="phone">
+          <span class="prefix">+63</span>
+          <input id="authPhone" type="tel" inputmode="numeric" placeholder="9171234567">
         </div>
-        <button id="recalcPinsBtn" type="button" class="secondary" hidden>Recalculate with pinned spots</button>
       </div>
+
+      <button id="sendOtpBtn" type="button" class="primary" style="margin-top:14px">Send OTP</button>
+
+      <div id="otpVerifyWrap" hidden style="margin-top:14px; border-top:1px solid var(--line); padding-top:12px;">
+        <label for="otpCode">Enter 6-digit OTP *</label>
+        <input id="otpCode" type="text" inputmode="numeric" maxlength="6" placeholder="123456">
+        <button id="verifyOtpBtn" type="button" class="primary" style="margin-top:10px">Verify &amp; Continue</button>
+        <button id="resendOtpBtn" type="button" class="secondary">Resend OTP</button>
+      </div>
+
+      <div id="authMsg" class="msg" hidden></div>
     </fieldset>
+  </section>
 
-    <div class="quote"><span>Delivery fee (<span id="quoteVehLabel">Motorcycle</span>)</span><span id="quote">—</span></div>
-
-    <div id="error" class="msg err" role="alert" hidden></div>
-    <button id="submitBtn" class="primary" type="submit">Book delivery</button>
-  </form>
-
-  <div id="success" class="msg ok" hidden>
-    <div>Booked. Your tracking code:</div>
-    <div class="code" id="successCode"></div>
-    <div id="successFee"></div>
-    <div class="hint">Save this code. Share it with the recipient so they can track too.</div>
-  </div>
-
-  <fieldset style="margin-top:22px">
-    <legend>Track a delivery</legend>
-    <label for="trackCode">Tracking code</label>
-    <input id="trackCode" autocapitalize="characters" placeholder="e.g. 1A2B3C4D5E">
-    <button id="trackBtn" type="button" style="margin-top:10px">Track</button>
-    <div id="trackResult" class="hint" style="margin-top:10px"></div>
-    <div id="acceptedRiderCard" class="rider-card" hidden>
-      <img id="acceptedRiderPhoto" src="" alt="Rider Photo" hidden>
+  <!-- MAIN APPLICATION CONTENT (SHOWN AFTER SIGN IN) -->
+  <div id="appContent" hidden>
+    <div class="user-bar">
       <div>
-        <div class="rc-tag">Assigned Rider</div>
-        <div id="acceptedRiderName" class="rc-name"></div>
-        <div class="rc-meta"><span id="acceptedRiderVehicle"></span> · Plate No.: <strong id="acceptedRiderPlate" style="color:var(--ink)"></strong></div>
-        <div id="acceptedRiderPhoneRow" class="rc-meta" style="margin-top:2px" hidden>Mobile: <a id="acceptedRiderPhone" href="tel:" style="color:var(--brand);font-weight:600;text-decoration:none"></a></div>
+        Signed in as <strong id="userIdentity"></strong>
+        <span class="hint" id="userRoleBadge" style="display:block; margin-top:2px;"></span>
       </div>
+      <button id="logoutBtn" type="button" class="secondary">Sign out</button>
     </div>
-    <div id="riderInfo" class="hint"></div>
-    <div id="map" hidden></div>
-    <div id="trackLegend" class="map-legend" hidden>
-      <span><i class="dot" style="background:#0b6e4f"></i> Pickup</span>
-      <span><i class="dot" style="background:#1a56db"></i> Rider</span>
-      <span><i class="dot" style="background:#b3261e"></i> Drop-off</span>
+
+    <h1>Book a Delivery</h1>
+
+    <div id="locNote" class="msg err" hidden>Could not load the province, city and barangay lists. Please type them instead.</div>
+
+    <form id="bookForm" novalidate>
+      <fieldset>
+        <legend>Sender / pickup</legend>
+        <label for="senderName">Sender name *</label>
+        <input id="senderName" required autocomplete="name">
+        <label for="senderPhone">Sender mobile number *</label>
+        <div class="phone">
+          <span class="prefix">+63</span>
+          <input id="senderPhone" type="tel" required autocomplete="tel-national" inputmode="numeric" placeholder="9171234567">
+        </div>
+        <label for="pickupLine">House / Flat No., Subdivision, Street *</label>
+        <input id="pickupLine" required autocomplete="address-line1" placeholder="e.g. #123 Purok 4, Sunrise Subd., Rizal St.">
+        <div class="row addr">
+          <div>
+            <label for="pickupProvince">Province / NCR *</label>
+            <select id="pickupProvince"><option value="">Loading…</option></select>
+            <input id="pickupProvinceTxt" placeholder="Province / NCR" hidden>
+          </div>
+          <div>
+            <label for="pickupCity">Town / City *</label>
+            <select id="pickupCity" disabled><option value="">Select province first</option></select>
+            <input id="pickupCityTxt" placeholder="Town / city" hidden>
+          </div>
+        </div>
+        <label for="pickupBarangay">Barangay</label>
+        <select id="pickupBarangay" disabled><option value="">Select town / city first</option></select>
+        <input id="pickupBarangayTxt" placeholder="Barangay (optional)" hidden>
+        <label for="pickupNotes">Pickup notes</label>
+        <input id="pickupNotes" placeholder="Landmark, gate code, etc.">
+      </fieldset>
+
+      <fieldset>
+        <legend>Recipient / drop-off</legend>
+        <label for="recipientName">Recipient name *</label>
+        <input id="recipientName" required>
+        <label for="recipientPhone">Recipient mobile number *</label>
+        <div class="phone">
+          <span class="prefix">+63</span>
+          <input id="recipientPhone" type="tel" required inputmode="numeric" placeholder="9171234567">
+        </div>
+        <div class="hint">The recipient receives status updates on this number.</div>
+        <label for="dropoffLine">House / Flat No., Subdivision, Street *</label>
+        <input id="dropoffLine" required autocomplete="off" placeholder="e.g. Unit 5B, Green Building, Casanas St.">
+        <div class="row addr">
+          <div>
+            <label for="dropoffProvince">Province / NCR *</label>
+            <select id="dropoffProvince"><option value="">Loading…</option></select>
+            <input id="dropoffProvinceTxt" placeholder="Province / NCR" hidden>
+          </div>
+          <div>
+            <label for="dropoffCity">Town / City *</label>
+            <select id="dropoffCity" disabled><option value="">Select province first</option></select>
+            <input id="dropoffCityTxt" placeholder="Town / city" hidden>
+          </div>
+        </div>
+        <label for="dropoffBarangay">Barangay</label>
+        <select id="dropoffBarangay" disabled><option value="">Select town / city first</option></select>
+        <input id="dropoffBarangayTxt" placeholder="Barangay (optional)" hidden>
+        <label for="dropoffNotes">Drop-off notes</label>
+        <input id="dropoffNotes" placeholder="Landmark, who to ask for, etc.">
+      </fieldset>
+
+      <fieldset>
+        <legend>Vehicle &amp; parcel</legend>
+        <label>Vehicle category *</label>
+        <input type="hidden" id="vehicleType" value="motorcycle">
+        <div class="veh-grid" id="vehGrid">
+          <button type="button" class="veh-btn active" data-veh="motorcycle">
+            <strong>Motorcycle</strong>
+            <span>Up to 20 kg · ₱50 base</span>
+          </button>
+          <button type="button" class="veh-btn" data-veh="car">
+            <strong>Car / Sedan</strong>
+            <span>Up to 200 kg · ₱100 base</span>
+          </button>
+          <button type="button" class="veh-btn" data-veh="van">
+            <strong>Van / L300</strong>
+            <span>Up to 1,000 kg · ₱280 base</span>
+          </button>
+        </div>
+
+        <label for="parcelDescription">What are you sending? *</label>
+        <input id="parcelDescription" required placeholder="e.g. Documents, Clothes, Box of food">
+        <div class="row">
+          <div>
+            <label for="size">Size *</label>
+            <select id="size" required>
+              <option value="small">Small (envelope / shoebox)</option>
+              <option value="medium">Medium</option>
+              <option value="large">Large</option>
+            </select>
+          </div>
+          <div>
+            <label for="weight">Weight (kg) *</label>
+            <input id="weight" type="number" min="0.1" max="20" step="0.1" inputmode="decimal" required placeholder="e.g. 1.5">
+          </div>
+        </div>
+        <label class="check"><input id="fragile" type="checkbox"> Fragile</label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Payment</legend>
+        <label for="payMethod">How will the delivery fee be paid?</label>
+        <select id="payMethod">
+          <option value="cash">Cash to the rider</option>
+          <option value="gcash">GCash</option>
+          <option value="maya">Maya</option>
+        </select>
+        <label for="codAmount">Amount for the rider to collect from the recipient (optional)</label>
+        <input id="codAmount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00">
+      </fieldset>
+
+      <fieldset>
+        <legend>Delivery fee &amp; route map</legend>
+        <div class="hint">We find both addresses on the map and measure the road distance. Fill in both addresses and parcel details first.</div>
+        <button id="calcBtn" type="button" style="margin-top:10px">Calculate delivery fee</button>
+        <div class="hint" style="font-size:.75rem; font-style:italic; margin-top:6px">The customer must shoulder any applicable toll fees, parking fees, or other miscellaneous charges incurred during the trip.</div>
+        <div id="calcMsg" class="hint" style="margin-top:10px"></div>
+        <div id="calcDetail"></div>
+        <div id="bookMapWrap" hidden>
+          <div class="hint" style="margin-top:8px">Drag the <strong>Pickup</strong> or <strong>Drop-off</strong> pin to fine-tune the exact spot, then click <strong>Recalculate with pinned spots</strong>.</div>
+          <div id="bookMap"></div>
+          <div class="map-legend">
+            <span><i class="dot" style="background:#0b6e4f"></i> Pickup (draggable)</span>
+            <span><i class="dot" style="background:#b3261e"></i> Drop-off (draggable)</span>
+            <span><i class="dot" style="background:#0b6e4f;opacity:.6"></i> Route</span>
+          </div>
+          <button id="recalcPinsBtn" type="button" class="secondary" hidden>Recalculate with pinned spots</button>
+        </div>
+      </fieldset>
+
+      <div class="quote"><span>Delivery fee (<span id="quoteVehLabel">Motorcycle</span>)</span><span id="quote">—</span></div>
+
+      <div id="error" class="msg err" role="alert" hidden></div>
+      <button id="submitBtn" class="primary" type="submit">Book delivery</button>
+    </form>
+
+    <div id="success" class="msg ok" hidden>
+      <div>Booked. Your tracking code:</div>
+      <div class="code" id="successCode"></div>
+      <div id="successFee"></div>
+      <div class="hint">Save this code. Share it with the recipient so they can track too.</div>
     </div>
-    <ul id="timeline" class="timeline"></ul>
-  </fieldset>
+
+    <fieldset style="margin-top:22px">
+      <legend>Track a delivery</legend>
+      <label for="trackCode">Tracking code</label>
+      <input id="trackCode" autocapitalize="characters" placeholder="e.g. 1A2B3C4D5E">
+      <button id="trackBtn" type="button" style="margin-top:10px">Track</button>
+      <div id="trackResult" class="hint" style="margin-top:10px"></div>
+      <div id="acceptedRiderCard" class="rider-card" hidden>
+        <img id="acceptedRiderPhoto" src="" alt="Rider Photo" hidden>
+        <div>
+          <div class="rc-tag">Assigned Rider</div>
+          <div id="acceptedRiderName" class="rc-name"></div>
+          <div class="rc-meta"><span id="acceptedRiderVehicle"></span> · Plate No.: <strong id="acceptedRiderPlate" style="color:var(--ink)"></strong></div>
+          <div id="acceptedRiderPhoneRow" class="rc-meta" style="margin-top:2px" hidden>Mobile: <a id="acceptedRiderPhone" href="tel:" style="color:var(--brand);font-weight:600;text-decoration:none"></a></div>
+        </div>
+      </div>
+      <div id="riderInfo" class="hint"></div>
+      <div id="map" hidden></div>
+      <div id="trackLegend" class="map-legend" hidden>
+        <span><i class="dot" style="background:#0b6e4f"></i> Pickup</span>
+        <span><i class="dot" style="background:#1a56db"></i> Rider</span>
+        <span><i class="dot" style="background:#b3261e"></i> Drop-off</span>
+      </div>
+      <ul id="timeline" class="timeline"></ul>
+    </fieldset>
+  </div>
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -277,13 +341,169 @@ function cleanMobile(raw) {
   return d.slice(0, 10);
 }
 
-['senderPhone', 'recipientPhone'].forEach((id) =>
+['senderPhone', 'recipientPhone', 'authPhone'].forEach((id) =>
   $(id).addEventListener('input', (e) => {
     const v = cleanMobile(e.target.value);
     if (e.target.value !== v) e.target.value = v;
   })
 );
 
+/* =========================================================
+   AUTHENTICATION & REGISTRATION (EMAIL OTP + SMS OTP)
+   ========================================================= */
+let authMethod = 'email';
+let pendingTarget = '';
+let locationsInitialized = false;
+
+function showAuthMsg(text, isError = false) {
+  const box = $('authMsg');
+  box.textContent = text;
+  box.className = 'msg ' + (isError ? 'err' : 'ok');
+  box.hidden = !text;
+}
+
+document.querySelectorAll('.auth-tab').forEach((tab) => {
+  tab.addEventListener('click', () => {
+    authMethod = tab.dataset.method;
+    document.querySelectorAll('.auth-tab').forEach((t) => t.classList.toggle('active', t === tab));
+    $('emailInputWrap').hidden = authMethod !== 'email';
+    $('phoneInputWrap').hidden = authMethod !== 'sms';
+    $('otpVerifyWrap').hidden = true;
+    showAuthMsg('');
+  });
+});
+
+async function triggerSendOtp() {
+  showAuthMsg('');
+  const role = $('authRole').value;
+  const fullName = $('authFullName').value.trim();
+  const btn = $('sendOtpBtn');
+
+  if (authMethod === 'email') {
+    const email = $('authEmail').value.trim();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      showAuthMsg('Please enter a valid email address.', true);
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = 'Sending OTP…';
+    const { error } = await db.auth.signInWithOtp({
+      email,
+      options: {
+        shouldCreateUser: true,
+        data: { role, full_name: fullName || undefined }
+      }
+    });
+    btn.disabled = false;
+    btn.textContent = 'Send OTP';
+    if (error) {
+      showAuthMsg(error.message || 'Could not send email OTP.', true);
+      return;
+    }
+    pendingTarget = email;
+    $('otpVerifyWrap').hidden = false;
+    showAuthMsg('OTP sent to ' + email + '. Please check your inbox (or spam folder).');
+  } else {
+    const mobile = $('authPhone').value.trim();
+    if (!/^9[0-9]{9}$/.test(mobile)) {
+      showAuthMsg('Mobile number must be 10 digits starting with 9 after +63 (e.g. 9171234567).', true);
+      return;
+    }
+    const fullPhone = '+63' + mobile;
+    btn.disabled = true;
+    btn.textContent = 'Sending SMS OTP…';
+    const { error } = await db.auth.signInWithOtp({
+      phone: fullPhone,
+      options: {
+        shouldCreateUser: true,
+        data: { role, full_name: fullName || undefined }
+      }
+    });
+    btn.disabled = false;
+    btn.textContent = 'Send OTP';
+    if (error) {
+      showAuthMsg(error.message || 'Could not send SMS OTP.', true);
+      return;
+    }
+    pendingTarget = fullPhone;
+    $('otpVerifyWrap').hidden = false;
+    showAuthMsg('SMS OTP sent to ' + fullPhone + '.');
+  }
+}
+
+$('sendOtpBtn').addEventListener('click', triggerSendOtp);
+$('resendOtpBtn').addEventListener('click', triggerSendOtp);
+
+$('verifyOtpBtn').addEventListener('click', async () => {
+  showAuthMsg('');
+  const token = $('otpCode').value.trim();
+  if (!/^[0-9]{6}$/.test(token)) {
+    showAuthMsg('Please enter the 6-digit OTP code.', true);
+    return;
+  }
+  const btn = $('verifyOtpBtn');
+  btn.disabled = true;
+  btn.textContent = 'Verifying…';
+
+  const verifyPayload = authMethod === 'email'
+    ? { email: pendingTarget, token, type: 'email' }
+    : { phone: pendingTarget, token, type: 'sms' };
+
+  const { data, error } = await db.auth.verifyOtp(verifyPayload);
+  btn.disabled = false;
+  btn.textContent = 'Verify & Continue';
+
+  if (error) {
+    showAuthMsg(error.message || 'Invalid or expired OTP. Please try again.', true);
+    return;
+  }
+  if (data && data.session) {
+    applyAuthenticatedUser(data.session.user);
+  }
+});
+
+$('logoutBtn').addEventListener('click', async () => {
+  await db.auth.signOut();
+  $('appContent').hidden = true;
+  $('authSection').hidden = false;
+  $('otpVerifyWrap').hidden = true;
+  $('otpCode').value = '';
+  showAuthMsg('You have signed out.');
+});
+
+function applyAuthenticatedUser(user) {
+  if (!user) return;
+  $('authSection').hidden = true;
+  $('appContent').hidden = false;
+
+  const meta = user.user_metadata || {};
+  const roleLabel = (meta.role === 'receiver') ? 'Receiver' : 'Sender';
+  const contact = user.email || user.phone || 'Verified User';
+  $('userIdentity').textContent = meta.full_name ? `${meta.full_name} (${contact})` : contact;
+  $('userRoleBadge').textContent = `Account Type: ${roleLabel}`;
+
+  if (meta.role !== 'receiver') {
+    if (meta.full_name && !$('senderName').value) $('senderName').value = meta.full_name;
+    if (user.phone && !$('senderPhone').value) $('senderPhone').value = cleanMobile(user.phone);
+  } else {
+    if (meta.full_name && !$('recipientName').value) $('recipientName').value = meta.full_name;
+    if (user.phone && !$('recipientPhone').value) $('recipientPhone').value = cleanMobile(user.phone);
+  }
+
+  if (!locationsInitialized) {
+    locationsInitialized = true;
+    loadLocations();
+  }
+  const urlCode = new URLSearchParams(location.search).get('code');
+  if (urlCode && !$('trackCode').value) {
+    $('trackCode').value = urlCode;
+    $('trackBtn').click();
+  }
+}
+
+/* =========================================================
+   EXISTING BOOKING & TRACKING LOGIC (UNCHANGED)
+   ========================================================= */
 function selectVehicle(v) {
   $('vehicleType').value = v;
   $('quoteVehLabel').textContent = VEH_LABEL[v] || 'Motorcycle';
@@ -961,9 +1181,13 @@ $('trackBtn').addEventListener('click', () => {
   trackTimer = setInterval(() => track(code, true), 15000);
 });
 
-loadLocations();
-const urlCode = new URLSearchParams(location.search).get('code');
-if (urlCode) { $('trackCode').value = urlCode; $('trackBtn').click(); }
+/* Check active session on page load */
+(async () => {
+  const { data: { session } } = await db.auth.getSession();
+  if (session && session.user) {
+    applyAuthenticatedUser(session.user);
+  }
+})();
 </script>
 </body>
 </html>
