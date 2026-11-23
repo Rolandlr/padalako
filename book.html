@@ -251,6 +251,13 @@
 
       <fieldset>
         <legend>Payment</legend>
+        <label for="feePayer">Who will pay the delivery fee? *</label>
+        <select id="feePayer" required>
+          <option value="">Select who will pay…</option>
+          <option value="sender">Sender (at pickup / online)</option>
+          <option value="recipient">Recipient (cash upon drop-off)</option>
+        </select>
+
         <label for="payMethod">How will the delivery fee be paid?</label>
         <select id="payMethod">
           <option value="cash">Cash to the rider</option>
@@ -326,6 +333,14 @@
 <script>
 const db = supabase.createClient(APP_CONFIG.SUPABASE_URL, APP_CONFIG.SUPABASE_ANON_KEY);
 const $ = (id) => document.getElementById(id);
+  $('feePayer').addEventListener('change', () => {
+    if ($('feePayer').value === 'recipient') {
+      $('payMethod').value = 'cash';
+      $('payMethod').disabled = true;
+    } else {
+      $('payMethod').disabled = false;
+    }
+  });
 const peso = (n) => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(n);
 const VEH_LABEL = { motorcycle: 'Motorcycle', car: 'Car / Sedan', van: 'Van / L300' };
 const VEH_MAX_KG = { motorcycle: 20, car: 200, van: 1000 };
@@ -994,6 +1009,11 @@ $('bookForm').addEventListener('submit', async (ev) => {
     return;
   }
   const btn = $('submitBtn');
+  if (!$('feePayer').value) {
+      showError('Please select who will pay the delivery fee (Sender or Recipient).');
+      $('feePayer').focus();
+      return;
+    }
   btn.disabled = true;
   btn.textContent = 'Booking…';
   const a = currentAddrs();
@@ -1013,6 +1033,7 @@ $('bookForm').addEventListener('submit', async (ev) => {
       is_fragile: $('fragile').checked,
       vehicle_type: $('vehicleType').value,
       payment_method: $('payMethod').value,
+      fee_payer: $('feePayer').value,
       cod_amount: $('codAmount').value ? parseFloat($('codAmount').value) : 0,
       pickup_notes: $('pickupNotes').value || null,
       dropoff_notes: $('dropoffNotes').value || null
@@ -1027,6 +1048,7 @@ $('bookForm').addEventListener('submit', async (ev) => {
   $('trackCode').value = res.tracking_code;
   $('trackBtn').click();
   $('bookForm').reset();
+  $('payMethod').disabled = false;
   selectVehicle('motorcycle');
   ADDR.forEach(resetCity);
   clearQuote();

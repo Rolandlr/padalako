@@ -443,7 +443,8 @@
 
   function availableCard(o) {
     const away = o.away_km != null ? ' · ' + o.away_km + ' km away' : '';
-    const trip = (o.distance_km != null ? o.distance_km + ' km trip · ' : '') + peso(o.delivery_fee) + ' (' + String(o.payment_method).toUpperCase() + ')';
+    const payerTag = o.fee_payer === 'recipient' ? ' · Fee by Recipient' : ' · Fee by Sender';
+    const trip = (o.distance_km != null ? o.distance_km + ' km trip · ' : '') + peso(o.delivery_fee) + ' (' + String(o.payment_method).toUpperCase() + payerTag + ')';
     const btn = h('button', {
       class: 'accept',
       type: 'button',
@@ -574,10 +575,16 @@
         (o.parcel_weight_kg ? ', ' + o.parcel_weight_kg + ' kg' : '') +
         (o.is_fragile ? ', FRAGILE' : '') + ')';
       const collect = [];
-      if (o.payment_method === 'cash') collect.push('Collect fee: ' + peso(o.delivery_fee));
-      if (Number(o.cod_amount) > 0) collect.push('Collect COD: ' + peso(o.cod_amount));
-
-      const hasCoords = (o.pickup_lat && o.pickup_lng) || (o.dropoff_lat && o.dropoff_lng);
+      const payer = o.fee_payer || 'sender';
+      if (o.payment_method === 'cash') {
+        if (payer === 'sender') {
+          collect.push('Collect fee at PICKUP: ' + peso(o.delivery_fee));
+        } else {
+          collect.push('Collect fee at DROP-OFF: ' + peso(o.delivery_fee));
+        }
+      }
+      if (Number(o.cod_amount) > 0) collect.push('Collect item COD at DROP-OFF: ' + peso(o.cod_amount));
+        const hasCoords = (o.pickup_lat && o.pickup_lng) || (o.dropoff_lat && o.dropoff_lng);
       const mapDiv = h('div', { class: 'job-map' });
       const legend = hasCoords ? h('div', { class: 'map-legend' },
         h('span', {}, h('i', { class: 'dot', style: 'background:#1a56db' }), ' You'),

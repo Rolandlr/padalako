@@ -371,8 +371,9 @@
       o.parcel_weight_kg ? o.parcel_weight_kg + ' kg' : null,
       o.is_fragile ? 'FRAGILE' : null].filter(Boolean).join(' · ');
 
-    const money = peso(o.delivery_fee) + ' · fee by ' + o.payment_method + ' (' + o.payment_status + ')' +
-      (Number(o.cod_amount) > 0 ? ' · collect ' + peso(o.cod_amount) + ' from recipient' : '');
+    const money = peso(o.delivery_fee) + ' · fee by ' + o.payment_method + ' (' + o.payment_status + ') · payer: ' + (o.fee_payer || 'sender') +
+  (Number(o.cod_amount) > 0 ? ' · collect ' + peso(o.cod_amount) + ' from recipient' : '');
+
 
     const riderText = rider
       ? riderLabel(rider) + (rider.plate_no ? ' (Plate: ' + rider.plate_no + ')' : '')
@@ -479,6 +480,7 @@
         'Fragile',
         'Distance (km)',
         'Delivery Fee (PHP)',
+	'Fee Payer',
         'Payment Method',
         'Payment Status',
         'COD Amount (PHP)'
@@ -507,6 +509,7 @@
           o.is_fragile ? 'Yes' : 'No',
           o.distance_km ?? '',
           o.delivery_fee ?? 0,
+	  o.fee_payer || 'sender',
           o.payment_method || '',
           o.payment_status || '',
           o.cod_amount ?? 0
