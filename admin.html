@@ -136,7 +136,7 @@
             <option value="all">All statuses</option>
             <option value="booked">Booked (new / unassigned)</option>
             <option value="assigned">Rider assigned</option>
-            <option value="picked_up">Picked up</option>
+            <option value="picked_up">Picked up/On the way</option>
             <option value="delivered">Delivered</option>
             <option value="cancelled">Cancelled</option>
           </select>
@@ -224,7 +224,7 @@
   const db = supabase.createClient(APP_CONFIG.SUPABASE_URL, APP_CONFIG.SUPABASE_ANON_KEY);
   const $ = (id) => document.getElementById(id);
   const peso = (n) => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(n);
-  const LABEL = { booked: 'Booked', assigned: 'Rider assigned', picked_up: 'Picked up', delivered: 'Delivered', cancelled: 'Cancelled' };
+  const LABEL = { booked: 'Booked', assigned: 'Rider assigned', picked_up: 'Picked up/On the way', delivered: 'Delivered', cancelled: 'Cancelled' };
   const ACTIVE = ['booked', 'assigned', 'picked_up'];
   let riders = [];
   let timer = null;
