@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PadalaKo — Rider</title>
+<script>
+  window.__IS_RECOVERY__ =
+    window.location.hash.includes('type=recovery') ||
+    window.location.search.includes('type=recovery') ||
+    window.location.search.includes('code=');
+</script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
   :root { --bg:#f5f6f8; --card:#fff; --ink:#1b1f24; --muted:#5b6570; --line:#d9dde3; --brand:#0b6e4f; --err:#b3261e; }
@@ -83,14 +89,13 @@
   <section id="loginView">
     <h1>Rider login</h1>
     <div id="loginForm" class="card">
-         <label for="email">Email</label>
-   <input id="email" type="email" autocomplete="off">
-   <label for="password">Password</label>
-   <div class="pass-wrap">
-     <input id="password" type="password" autocomplete="new-password">
-     <button id="togglePassBtn" type="button">Show</button>
-   </div>
-
+      <label for="email">Email</label>
+      <input id="email" type="email" autocomplete="off">
+      <label for="password">Password</label>
+      <div class="pass-wrap">
+        <input id="password" type="password" autocomplete="new-password">
+        <button id="togglePassBtn" type="button">Show</button>
+      </div>
       <div id="loginError" class="msg" hidden></div>
       <button id="signInBtn" class="primary" type="button" style="margin-top:14px">Sign in</button>
       <div style="text-align:center; margin-top:12px;">
@@ -101,11 +106,16 @@
     <!-- Reset Password Box (appears after clicking email reset link) -->
     <div id="resetBox" class="card" hidden>
       <h2 style="margin-top:0">Set New Password</h2>
-      <div class="muted">Enter your new password below (minimum 6 characters).</div>
+      <div class="muted">Enter and confirm your new password below (minimum 6 characters).</div>
       <label for="newPassword">New Password</label>
       <div class="pass-wrap">
         <input id="newPassword" type="password" autocomplete="new-password" placeholder="••••••••">
         <button id="toggleNewPassBtn" type="button">Show</button>
+      </div>
+      <label for="confirmNewPassword">Confirm New Password</label>
+      <div class="pass-wrap">
+        <input id="confirmNewPassword" type="password" autocomplete="new-password" placeholder="••••••••">
+        <button id="toggleConfirmPassBtn" type="button">Show</button>
       </div>
       <div id="resetMsg" class="msg" hidden></div>
       <button id="saveNewPassBtn" class="primary" type="button" style="margin-top:14px">Update Password</button>
@@ -223,6 +233,14 @@
   let user = null, timer = null, watchId = null, lastSent = 0, wakeLock = null;
   let lastLat = null, lastLng = null, knownAvailIds = null;
   let autoAccept = false, activeJobCount = 0, isClaiming = false;
+  let isRecovering = Boolean(window.__IS_RECOVERY__);
+
+  function openResetView() {
+    isRecovering = true;
+    showView('login');
+    $('loginForm').hidden = true;
+    $('resetBox').hidden = false;
+  }
 
   async function doSignIn() {
     loginError('');
@@ -245,7 +263,7 @@
   }
 
   $('signInBtn').addEventListener('click', doSignIn);
-  
+
   /* Show / Hide Password Toggles */
   $('togglePassBtn').addEventListener('click', () => {
     const p = $('password');
@@ -259,6 +277,13 @@
     const show = p.type === 'password';
     p.type = show ? 'text' : 'password';
     $('toggleNewPassBtn').textContent = show ? 'Hide' : 'Show';
+  });
+
+  $('toggleConfirmPassBtn').addEventListener('click', () => {
+    const p = $('confirmNewPassword');
+    const show = p.type === 'password';
+    p.type = show ? 'text' : 'password';
+    $('toggleConfirmPassBtn').textContent = show ? 'Hide' : 'Show';
   });
 
   /* Forgot Password (Send Reset Email) */
@@ -288,19 +313,24 @@
   /* Handle Return from Email Reset Link */
   db.auth.onAuthStateChange((event) => {
     if (event === 'PASSWORD_RECOVERY') {
-      showView('login');
-      $('loginForm').hidden = true;
-      $('resetBox').hidden = false;
+      openResetView();
     }
   });
 
   $('saveNewPassBtn').addEventListener('click', async () => {
     const newPassword = $('newPassword').value;
+    const confirmPassword = $('confirmNewPassword').value;
     const msg = $('resetMsg');
     msg.hidden = true;
     if (newPassword.length < 6) {
       msg.className = 'msg';
       msg.textContent = 'Password must be at least 6 characters.';
+      msg.hidden = false;
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      msg.className = 'msg';
+      msg.textContent = 'Passwords do not match. Please re-enter.';
       msg.hidden = false;
       return;
     }
@@ -319,6 +349,8 @@
     msg.className = 'msg ok';
     msg.textContent = 'Password updated! Redirecting to dashboard…';
     msg.hidden = false;
+    isRecovering = false;
+    window.history.replaceState({}, document.title, window.location.pathname);
     setTimeout(async () => {
       $('resetBox').hidden = true;
       $('loginForm').hidden = false;
@@ -468,6 +500,7 @@
   });
 
   async function enter(u) {
+    if (isRecovering) { openResetView(); return; }
     const { data: prof, error } = await db.from('profiles').select('role, full_name').eq('id', u.id).maybeSingle();
     if (error || !prof || prof.role !== 'rider') {
       await db.auth.signOut();
@@ -634,7 +667,6 @@
     addPin(dLL, '#b3261e', 'Receiver (Drop-off)');
     addPin(rLL, '#1a56db', 'You (Rider)');
 
-    // Route: Rider -> Sender -> Receiver when 'assigned'; Rider -> Receiver when 'picked_up'
     const waypoints = rLL
       ? (o.status === 'picked_up' ? [rLL, dLL] : [rLL, pLL, dLL]).filter(Boolean)
       : [pLL, dLL].filter(Boolean);
@@ -687,7 +719,7 @@
         }
       }
       if (Number(o.cod_amount) > 0) collect.push('Collect item COD at DROP-OFF: ' + peso(o.cod_amount));
-        const hasCoords = (o.pickup_lat && o.pickup_lng) || (o.dropoff_lat && o.dropoff_lng);
+      const hasCoords = (o.pickup_lat && o.pickup_lng) || (o.dropoff_lat && o.dropoff_lng);
       const mapDiv = h('div', { class: 'job-map' });
       const legend = hasCoords ? h('div', { class: 'map-legend' },
         h('span', {}, h('i', { class: 'dot', style: 'background:#1a56db' }), ' You'),
@@ -787,18 +819,15 @@
 
   $('shareBtn').addEventListener('click', () => { if (watchId === null) startSharing(); else { stopSharing(); locMsg(''); } });
 
-    (async () => {
-    if (window.location.hash.includes('type=recovery') || window.location.search.includes('type=recovery')) {
-      showView('login');
-      $('loginForm').hidden = true;
-      $('resetBox').hidden = false;
+  (async () => {
+    if (isRecovering) {
+      openResetView();
       return;
     }
     const { data } = await db.auth.getSession();
-    if (data && data.session) await enter(data.session.user);
+    if (data && data.session && !isRecovering) await enter(data.session.user);
     else showView('login');
   })();
-
 </script>
 </body>
 </html>
