@@ -1,0 +1,777 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PadalaKo — Rider Maintenance</title>
+<script>
+  window.__IS_RECOVERY__ =
+    window.location.hash.includes('type=recovery') ||
+    window.location.search.includes('type=recovery') ||
+    window.location.search.includes('code=');
+</script>
+<style>
+  :root { --bg:#f5f6f8; --card:#fff; --ink:#1b1f24; --muted:#5b6570; --line:#d9dde3; --brand:#0b6e4f; --err:#b3261e; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:16px/1.45 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--ink); }
+  main { max-width:760px; margin:0 auto; padding:16px; }
+  .brand-header { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:4px 0 14px; }
+  .brand-header svg { height:38px; width:auto; display:block; }
+  h1 { font-size:1.3rem; margin:6px 0 14px; }
+  h2 { font-size:1.05rem; margin:0 0 10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin:0 0 14px; }
+  label { display:block; font-size:.85rem; color:var(--muted); margin-top:8px; }
+  input, select, button { font:inherit; padding:10px 12px; border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--ink); width:100%; }
+  button { cursor:pointer; }
+  button.primary { background:var(--brand); color:#fff; border:0; font-weight:600; }
+  button.secondary { background:#f0f4f2; color:var(--brand); border:1px solid #c3dfd3; font-weight:600; }
+  button.warn { background:#fef3c7; color:#92400e; border:1px solid #fcd34d; font-weight:600; }
+  button:disabled { opacity:.6; cursor:wait; }
+  .top { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
+  .top button, .top a { width:auto; }
+  .grid-2 { display:grid; grid-template-columns:repeat(2, 1fr); gap:10px; }
+  .grid-veh { display:grid; grid-template-columns:1.05fr 1.65fr 1.1fr; gap:10px; grid-column:1 / -1; }
+  @media (max-width:600px) { .grid-2, .grid-veh { grid-template-columns:1fr; } }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:12px; }
+  .phone { display:flex; }
+  .phone .prefix { display:flex; align-items:center; padding:0 12px; border:1px solid var(--line); border-right:0; border-radius:8px 0 0 8px; background:#eef0f3; color:var(--muted); font-weight:600; }
+  .phone input { border-radius:0 8px 8px 0; }
+  .pass-wrap { display:flex; gap:6px; }
+  .pass-wrap button { width:auto; padding:0 14px; flex-shrink:0; }
+  .badge { display:inline-block; font-size:.75rem; font-weight:700; padding:2px 8px; border-radius:999px; background:#e8eaee; }
+  .badge.active { background:#d1fae5; color:#065f46; }
+  .badge.inactive { background:#fde2e1; color:#991b1b; }
+  .badge.pending { background:#fef3c7; color:#92400e; }
+  .badge.veh { background:#e8f4ef; color:var(--brand); text-transform:uppercase; }
+  .muted { color:var(--muted); font-size:.88rem; }
+  .hint { color:var(--muted); font-size:.78rem; margin-top:4px; }
+  .msg { border-radius:10px; padding:10px 12px; margin:10px 0 0; font-size:.9rem; }
+  .msg.err { background:#fdecea; color:var(--err); }
+  .msg.ok { background:#e8f4ef; color:var(--brand); }
+  .rider-item { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  .rider-item:last-child { border-bottom:0; padding-bottom:0; }
+  .rider-left { display:flex; align-items:center; gap:12px; }
+  .rider-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .rider-avatar { width:48px; height:48px; border-radius:50%; object-fit:cover; border:1px solid var(--line); background:#eef0f3; flex-shrink:0; }
+  .nav-link { display:inline-block; padding:8px 12px; border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--ink); text-decoration:none; font-size:.9rem; }
+  a { color:#1a56db; }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header class="brand-header" aria-label="PadalaKo">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 265 56" role="img" aria-label="PadalaKo Logo">
+      <defs>
+        <linearGradient id="pkPinGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#19b85b"/>
+          <stop offset="100%" stop-color="#0b6e4f"/>
+        </linearGradient>
+      </defs>
+      <rect x="2" y="16" width="11" height="3.2" rx="1.6" fill="#19b85b"/>
+      <rect x="0" y="24" width="14" height="3.2" rx="1.6" fill="#19b85b"/>
+      <rect x="3" y="32" width="10" height="3.2" rx="1.6" fill="#19b85b"/>
+      <path d="M35 4C23.4 4 14 13.2 14 24.6C14 38.5 35 53 35 53C35 53 56 38.5 56 24.6C56 13.2 46.6 4 35 4Z" fill="url(#pkPinGrad)"/>
+      <polygon points="35,13 45,18.5 35,24 25,18.5" fill="#ffffff"/>
+      <polygon points="25,18.5 35,24 35,35.5 25,30" fill="#d9f2e4"/>
+      <polygon points="45,18.5 35,24 35,35.5 45,30" fill="#a8e0c2"/>
+      <line x1="30" y1="15.7" x2="40" y2="21.2" stroke="#0b6e4f" stroke-width="1.6" stroke-linecap="round"/>
+      <text x="66" y="37" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="30" font-weight="800" letter-spacing="-0.6">
+        <tspan fill="#0f2942">Padala</tspan><tspan fill="#16a34a">Ko</tspan>
+      </text>
+    </svg>
+  </header>
+
+  <!-- ADMIN LOGIN -->
+  <section id="loginView" style="max-width:420px; margin:0 auto;">
+    <h1>Admin Login — Rider Maintenance</h1>
+    <div id="loginForm" class="card">
+      <label for="email">Admin Email</label>
+      <input id="email" type="email" maxlength="254" autocomplete="off">
+      <label for="password">Password</label>
+      <div class="pass-wrap">
+        <input id="password" type="password" maxlength="72" autocomplete="new-password">
+        <button id="toggleAdminPassBtn" type="button">Show</button>
+      </div>
+      <div id="loginError" class="msg err" hidden></div>
+      <button id="maintSignInBtn" class="primary" type="button" style="margin-top:14px">Sign in</button>
+      <div style="text-align:center; margin-top:12px;">
+        <a href="#" id="forgotPassLink" style="font-size:.9rem; font-weight:600;">Forgot password?</a>
+      </div>
+    </div>
+
+    <!-- Reset Password Box (appears after clicking email reset link) -->
+    <div id="resetBox" class="card" hidden>
+      <h2 style="margin-top:0">Set New Password</h2>
+      <div class="muted">Enter and confirm your new password below (minimum 6 characters).</div>
+      <label for="newPassword">New Password</label>
+      <div class="pass-wrap">
+        <input id="newPassword" type="password" maxlength="72" autocomplete="new-password" placeholder="••••••••">
+        <button id="toggleNewPassBtn" type="button">Show</button>
+      </div>
+      <label for="confirmNewPassword">Confirm New Password</label>
+      <div class="pass-wrap">
+        <input id="confirmNewPassword" type="password" maxlength="72" autocomplete="new-password" placeholder="••••••••">
+        <button id="toggleConfirmPassBtn" type="button">Show</button>
+      </div>
+      <div id="resetMsg" class="msg err" hidden></div>
+      <button id="saveNewPassBtn" class="primary" type="button" style="margin-top:14px">Update Password</button>
+    </div>
+  </section>
+
+  <!-- MAIN MAINTENANCE VIEW -->
+  <section id="appView" hidden>
+    <div class="top" style="margin-bottom:14px">
+      <h1 style="margin:0">Rider Maintenance</h1>
+      <div class="top">
+        <a href="admin.html" class="nav-link">← Dispatch Admin</a>
+        <button id="refreshBtn" type="button">Refresh</button>
+        <button id="signOut" type="button">Sign out</button>
+      </div>
+    </div>
+
+    <!-- 1. CREATE NEW RIDER -->
+    <div class="card">
+      <h2>+ Register New Rider</h2>
+      <div class="muted" style="margin-bottom:6px">Creates the Auth login, Profile record, and Rider wallet/vehicle entry. Rider remains inactive until email verification is completed.</div>
+
+      <div class="grid-2">
+        <div>
+          <label for="newName">Full Name *</label>
+          <input id="newName" type="text" placeholder="e.g. Juan Dela Cruz">
+        </div>
+        <div>
+          <label for="newPhone">Mobile Number (+63)</label>
+          <div class="phone">
+            <span class="prefix">+63</span>
+            <input id="newPhone" type="tel" inputmode="numeric" placeholder="9171234567">
+          </div>
+        </div>
+        <div>
+          <label for="newEmail">Login Email *</label>
+          <input id="newEmail" type="email" maxlength="254" placeholder="rider@example.com">
+        </div>
+        <div>
+          <label for="newPass">Password * (min 6 chars)</label>
+          <div class="pass-wrap">
+            <input id="newPass" type="password" maxlength="72" autocomplete="new-password" placeholder="••••••••">
+            <button id="togglePassBtn" type="button">Show</button>
+          </div>
+        </div>
+
+        <div class="grid-veh">
+          <div>
+            <label for="newVeh">Vehicle Category *</label>
+            <select id="newVeh">
+              <option value="motorcycle">Motorcycle</option>
+              <option value="car">Car / Sedan</option>
+              <option value="van">Van / L300</option>
+            </select>
+          </div>
+          <div>
+            <label for="newColorMake">Color &amp; Make</label>
+            <input id="newColorMake" type="text" placeholder="e.g. White Toyota Fortuner">
+          </div>
+          <div>
+            <label for="newPlate">Plate Number</label>
+            <input id="newPlate" type="text" placeholder="e.g. ABC 1234">
+          </div>
+        </div>
+
+        <div>
+          <label for="newCredit">Starting Credit Wallet (₱)</label>
+          <input id="newCredit" type="number" min="0" step="50" value="200">
+        </div>
+        <div>
+          <label for="newCod">Max COD Limit (₱)</label>
+          <input id="newCod" type="number" min="0" step="100" value="2000">
+        </div>
+      </div>
+
+      <div style="margin-top:10px;">
+        <label for="newPhoto" style="margin-top:0">Rider Photo (optional)</label>
+        <input id="newPhoto" type="file" accept="image/*">
+      </div>
+
+      <div class="row">
+        <button id="createBtn" class="primary" type="button">Create Rider Account</button>
+      </div>
+      <div id="createMsg" class="msg" hidden></div>
+    </div>
+
+    <!-- 2. EDIT EXISTING RIDER -->
+    <div class="card" id="editCard" hidden>
+      <div class="top">
+        <h2 style="margin:0">Edit Rider Details</h2>
+        <button id="closeEditBtn" type="button" style="width:auto;padding:6px 10px">Close</button>
+      </div>
+      <input type="hidden" id="editId">
+
+      <div class="grid-2">
+        <div>
+          <label for="editName">Full Name</label>
+          <input id="editName" type="text">
+        </div>
+        <div>
+          <label for="editPhone">Mobile Number (+63)</label>
+          <div class="phone">
+            <span class="prefix">+63</span>
+            <input id="editPhone" type="tel" inputmode="numeric" placeholder="9171234567">
+          </div>
+        </div>
+
+        <div class="grid-veh">
+          <div>
+            <label for="editVeh">Vehicle Category</label>
+            <select id="editVeh">
+              <option value="motorcycle">Motorcycle</option>
+              <option value="car">Car / Sedan</option>
+              <option value="van">Van / L300</option>
+            </select>
+          </div>
+          <div>
+            <label for="editColorMake">Color &amp; Make</label>
+            <input id="editColorMake" type="text" placeholder="e.g. White Toyota Fortuner">
+          </div>
+          <div>
+            <label for="editPlate">Plate Number</label>
+            <input id="editPlate" type="text">
+          </div>
+        </div>
+
+        <div>
+          <label for="editCredit">Credit Wallet (₱)</label>
+          <input id="editCredit" type="number" min="0" step="10">
+        </div>
+        <div>
+          <label for="editCod">Max COD Limit (₱)</label>
+          <input id="editCod" type="number" min="0" step="100">
+        </div>
+        <div>
+          <label for="editActive">Account Status</label>
+          <select id="editActive">
+            <option value="true">Active (Can accept jobs)</option>
+            <option value="false">Inactive (Suspended)</option>
+          </select>
+          <div id="editVerifyNote" class="hint" hidden>Rider must verify their email before they can be marked Active.</div>
+        </div>
+        <div>
+          <label for="editPhoto">Replace Rider Photo (optional)</label>
+          <input id="editPhoto" type="file" accept="image/*">
+        </div>
+      </div>
+
+      <div class="row">
+        <button id="saveEditBtn" class="primary" type="button">Save Changes</button>
+      </div>
+      <div id="editMsg" class="msg" hidden></div>
+    </div>
+
+    <!-- 3. RIDER ROSTER LIST -->
+    <div class="card">
+      <div class="top" style="margin-bottom:6px">
+        <h2 style="margin:0">Registered Riders (<span id="riderCount">0</span>)</h2>
+      </div>
+      <div id="listError" class="msg err" hidden></div>
+      <div id="riderList"></div>
+    </div>
+  </section>
+</main>
+
+<script src="config.js"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script>
+  const db = supabase.createClient(APP_CONFIG.SUPABASE_URL, APP_CONFIG.SUPABASE_ANON_KEY);
+  const $ = (id) => document.getElementById(id);
+  const peso = (n) => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(n);
+  const VEH_LABEL = { motorcycle: 'Motorcycle', car: 'Car / Sedan', van: 'Van / L300' };
+  let riders = [];
+  let isRecovering = Boolean(window.__IS_RECOVERY__);
+
+  /* Mobile number formatting (+63 + 10 digits starting with 9) */
+  function cleanMobile(raw) {
+    let d = String(raw || '').replace(/[^0-9]/g, '');
+    if (d.length >= 12 && d.startsWith('63')) d = d.slice(2);
+    else if (d.startsWith('0')) d = d.slice(1);
+    return d.slice(0, 10);
+  }
+
+  ['newPhone', 'editPhone'].forEach((id) => {
+    $(id).addEventListener('input', (e) => {
+      const v = cleanMobile(e.target.value);
+      if (e.target.value !== v) e.target.value = v;
+    });
+  });
+
+  function formatFullPhone(raw10) {
+    const cleaned = cleanMobile(raw10);
+    if (!cleaned) return null;
+    if (!/^9[0-9]{9}$/.test(cleaned)) {
+      throw new Error('Mobile number must be 10 digits starting with 9 after +63 (e.g. 9171234567).');
+    }
+    return '+63' + cleaned;
+  }
+
+  /* Password visibility toggles */
+  function bindToggle(btnId, inputId) {
+    $(btnId).addEventListener('click', () => {
+      const p = $(inputId);
+      const show = p.type === 'password';
+      p.type = show ? 'text' : 'password';
+      $(btnId).textContent = show ? 'Hide' : 'Show';
+    });
+  }
+  bindToggle('toggleAdminPassBtn', 'password');
+  bindToggle('toggleNewPassBtn', 'newPassword');
+  bindToggle('toggleConfirmPassBtn', 'confirmNewPassword');
+  bindToggle('togglePassBtn', 'newPass');
+
+  function showView(name) {
+    $('loginView').hidden = name !== 'login';
+    $('appView').hidden = name !== 'app';
+  }
+
+  function setMsg(id, text, isErr = false) {
+    const el = $(id);
+    el.textContent = text || '';
+    el.className = 'msg ' + (isErr ? 'err' : 'ok');
+    el.hidden = !text;
+  }
+
+  function openResetView() {
+    isRecovering = true;
+    showView('login');
+    $('loginForm').hidden = true;
+    $('resetBox').hidden = false;
+  }
+
+  /* Admin Sign In */
+  $('maintSignInBtn').addEventListener('click', async () => {
+    setMsg('loginError', '', true);
+    const btn = $('maintSignInBtn');
+    btn.disabled = true;
+    btn.textContent = 'Signing in…';
+    try {
+      const { data, error } = await db.auth.signInWithPassword({
+        email: $('email').value.trim(),
+        password: $('password').value
+      });
+      if (error) { setMsg('loginError', error.message, true); return; }
+      await enter(data.user);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Sign in';
+    }
+  });
+
+  /* Forgot Password (Send Reset Email) */
+  $('forgotPassLink').addEventListener('click', async (e) => {
+    e.preventDefault();
+    setMsg('loginError', '', true);
+    const email = $('email').value.trim();
+    if (!email) {
+      setMsg('loginError', 'Please enter your admin email address first, then click "Forgot password?".', true);
+      $('email').focus();
+      return;
+    }
+    const { error } = await db.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + window.location.pathname
+    });
+    if (error) {
+      setMsg('loginError', error.message, true);
+    } else {
+      setMsg('loginError', 'Password reset link sent to ' + email + '. Check your inbox (and spam folder).', false);
+    }
+  });
+
+  /* Handle Return from Email Reset Link */
+  db.auth.onAuthStateChange((event) => {
+    if (event === 'PASSWORD_RECOVERY') {
+      openResetView();
+    }
+  });
+
+  $('saveNewPassBtn').addEventListener('click', async () => {
+    const newPassword = $('newPassword').value;
+    const confirmPassword = $('confirmNewPassword').value;
+    setMsg('resetMsg', '', true);
+    if (newPassword.length < 6) {
+      setMsg('resetMsg', 'Password must be at least 6 characters.', true);
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setMsg('resetMsg', 'Passwords do not match. Please re-enter.', true);
+      return;
+    }
+    const btn = $('saveNewPassBtn');
+    btn.disabled = true;
+    btn.textContent = 'Updating…';
+    const { error } = await db.auth.updateUser({ password: newPassword });
+    btn.disabled = false;
+    btn.textContent = 'Update Password';
+    if (error) {
+      setMsg('resetMsg', error.message, true);
+      return;
+    }
+    setMsg('resetMsg', 'Password updated! Redirecting to Rider Maintenance…', false);
+    isRecovering = false;
+    window.history.replaceState({}, document.title, window.location.pathname);
+    setTimeout(async () => {
+      $('resetBox').hidden = true;
+      $('loginForm').hidden = false;
+      const { data } = await db.auth.getSession();
+      if (data && data.session) await enter(data.session.user);
+    }, 1500);
+  });
+
+  $('signOut').addEventListener('click', async () => {
+    await db.auth.signOut();
+    showView('login');
+  });
+
+  $('refreshBtn').addEventListener('click', loadRiders);
+
+  async function enter(user) {
+    if (isRecovering) { openResetView(); return; }
+    const { data: prof, error } = await db.from('profiles').select('role').eq('id', user.id).maybeSingle();
+    if (error || !prof || prof.role !== 'admin') {
+      await db.auth.signOut();
+      showView('login');
+      setMsg('loginError', 'This account is not an admin.', true);
+      return;
+    }
+    showView('app');
+    await loadRiders();
+  }
+
+  async function uploadAvatar(riderId, file) {
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const filePath = `${riderId}/verified_avatar.${ext}`;
+    const { error: upErr } = await db.storage
+      .from('avatars')
+      .upload(filePath, file, { upsert: true });
+    if (upErr) throw upErr;
+    const { data: urlData } = db.storage.from('avatars').getPublicUrl(filePath);
+    return `${urlData.publicUrl}?t=${Date.now()}`;
+  }
+
+  /* =========================================================
+     1. CREATE NEW RIDER (Auth User + Profile + Rider Record)
+     ========================================================= */
+  $('createBtn').addEventListener('click', async () => {
+    const fullName = $('newName').value.trim();
+    const rawPhone = $('newPhone').value.trim();
+    const email = $('newEmail').value.trim().toLowerCase();
+    const password = $('newPass').value;
+    const vehicleType = $('newVeh').value;
+    const colorMake = $('newColorMake').value.trim();
+    const plateNo = $('newPlate').value.trim().toUpperCase();
+    const creditBalance = parseFloat($('newCredit').value) || 0;
+    const cashOnHand = parseFloat($('newCod').value) || 2000;
+    const photoFile = $('newPhoto').files && $('newPhoto').files[0];
+    const btn = $('createBtn');
+
+    if (!fullName || !email || password.length < 6) {
+      setMsg('createMsg', 'Full Name, Email, and Password (minimum 6 characters) are required.', true);
+      return;
+    }
+
+    let formattedPhone = null;
+    try {
+      formattedPhone = formatFullPhone(rawPhone);
+    } catch (phoneErr) {
+      setMsg('createMsg', phoneErr.message, true);
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Creating rider…';
+    setMsg('createMsg', '');
+
+    try {
+      const tempAuthClient = supabase.createClient(
+        APP_CONFIG.SUPABASE_URL,
+        APP_CONFIG.SUPABASE_ANON_KEY,
+        { auth: { persistSession: false, autoRefreshToken: false } }
+      );
+
+      const { data: signUpData, error: signUpErr } = await tempAuthClient.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { role: 'rider', full_name: fullName }
+        }
+      });
+
+      if (signUpErr) throw signUpErr;
+      const newUid = signUpData && signUpData.user && signUpData.user.id;
+      if (!newUid) throw new Error('Could not obtain new user ID. Check if this email is already registered.');
+
+      let avatarUrl = null;
+      if (photoFile) {
+        avatarUrl = await uploadAvatar(newUid, photoFile);
+      }
+
+      const profilePayload = {
+        id: newUid,
+        role: 'rider',
+        full_name: fullName,
+        phone: formattedPhone
+      };
+      if (avatarUrl) profilePayload.avatar_url = avatarUrl;
+
+      const { error: profErr } = await db
+        .from('profiles')
+        .upsert(profilePayload, { onConflict: 'id' });
+      if (profErr) throw new Error('Profiles table error: ' + profErr.message);
+
+      const isAlreadyConfirmed = Boolean(signUpData.user && signUpData.user.email_confirmed_at);
+
+      const { error: riderErr } = await db
+        .from('riders')
+        .upsert({
+          id: newUid,
+          vehicle_type: vehicleType,
+          vehicle_color_make: colorMake || null,
+          plate_no: plateNo || null,
+          is_active: isAlreadyConfirmed,
+          credit_balance: creditBalance,
+          cash_on_hand: cashOnHand
+        }, { onConflict: 'id' });
+      if (riderErr) throw new Error('Riders table error: ' + riderErr.message);
+
+      $('newName').value = '';
+      $('newPhone').value = '';
+      $('newEmail').value = '';
+      $('newPass').value = '';
+      $('newPass').type = 'password';
+      $('togglePassBtn').textContent = 'Show';
+      $('newColorMake').value = '';
+      $('newPlate').value = '';
+      $('newPhoto').value = '';
+
+      setMsg(
+        'createMsg',
+        isAlreadyConfirmed
+          ? `Rider "${fullName}" (${VEH_LABEL[vehicleType]}) created and Active!`
+          : `Rider "${fullName}" (${VEH_LABEL[vehicleType]}) created! Verification email sent to ${email}. Status will remain Pending Verification until confirmed.`
+      );
+      await loadRiders();
+    } catch (err) {
+      setMsg('createMsg', 'Error: ' + (err.message || err), true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Create Rider Account';
+    }
+  });
+
+  /* =========================================================
+     2. LOAD & RENDER REGISTERED RIDERS
+     ========================================================= */
+  async function loadRiders() {
+    setMsg('listError', '', true);
+    const { data, error } = await db.rpc('get_riders_with_auth');
+
+    if (error) {
+      setMsg('listError', 'Database RPC error (make sure get_riders_with_auth SQL function is updated): ' + error.message, true);
+      return;
+    }
+
+    riders = data || [];
+    $('riderCount').textContent = String(riders.length);
+    const box = $('riderList');
+    box.replaceChildren();
+
+    if (!riders.length) {
+      box.innerHTML = '<div class="muted" style="padding-top:8px">No riders registered yet.</div>';
+      return;
+    }
+
+    riders.forEach((r) => {
+      const name = r.full_name || ('Rider ' + r.id.slice(0, 4));
+      const vType = (r.vehicle_type || 'motorcycle').toLowerCase();
+      const isVerified = Boolean(r.email_confirmed_at);
+
+      let statusClass = 'inactive';
+      let statusLabel = 'Inactive';
+      if (!isVerified) {
+        statusClass = 'pending';
+        statusLabel = 'Pending Verification';
+      } else if (r.is_active) {
+        statusClass = 'active';
+        statusLabel = 'Active';
+      }
+
+      const item = document.createElement('div');
+      item.className = 'rider-item';
+
+      const left = document.createElement('div');
+      left.className = 'rider-left';
+
+      const img = document.createElement('img');
+      img.className = 'rider-avatar';
+      img.alt = name;
+      img.src = r.avatar_url || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%2394a3b8"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>';
+
+      const info = document.createElement('div');
+      info.innerHTML = `
+        <div>
+          <strong>${escapeHtml(name)}</strong>
+          <span class="badge veh">${escapeHtml(VEH_LABEL[vType] || vType)}</span>
+          <span class="badge ${statusClass}">${statusLabel}</span>
+        </div>
+        <div class="muted">
+          ${r.vehicle_color_make ? 'Vehicle: <strong>' + escapeHtml(r.vehicle_color_make) + '</strong> · ' : ''}Plate: <strong>${escapeHtml(r.plate_no || 'None')}</strong>
+          ${r.phone ? ' · ' + escapeHtml(r.phone) : ''}
+          ${r.email ? ' · ' + escapeHtml(r.email) : ''}
+        </div>
+        <div class="muted">
+          Credit Wallet: <strong>${peso(Number(r.credit_balance || 0))}</strong> · COD Limit: <strong>${peso(Number(r.cash_on_hand || 0))}</strong>
+        </div>
+      `;
+
+      left.append(img, info);
+
+      const actions = document.createElement('div');
+      actions.className = 'rider-actions';
+
+      if (!isVerified && r.email) {
+        const resendBtn = document.createElement('button');
+        resendBtn.type = 'button';
+        resendBtn.className = 'warn';
+        resendBtn.style.width = 'auto';
+        resendBtn.style.padding = '8px 12px';
+        resendBtn.textContent = 'Resend Email';
+        resendBtn.addEventListener('click', async () => {
+          resendBtn.disabled = true;
+          resendBtn.textContent = 'Sending…';
+          try {
+            const { error: resErr } = await db.auth.resend({ type: 'signup', email: r.email });
+            if (resErr) throw resErr;
+            resendBtn.textContent = 'Sent!';
+            setTimeout(() => { resendBtn.textContent = 'Resend Email'; resendBtn.disabled = false; }, 3000);
+          } catch (e) {
+            alert('Failed to resend verification email: ' + (e.message || e));
+            resendBtn.textContent = 'Resend Email';
+            resendBtn.disabled = false;
+          }
+        });
+        actions.appendChild(resendBtn);
+      }
+
+      const editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.className = 'secondary';
+      editBtn.style.width = 'auto';
+      editBtn.style.padding = '8px 14px';
+      editBtn.textContent = 'Edit';
+      editBtn.addEventListener('click', () => openEdit(r));
+
+      actions.appendChild(editBtn);
+      item.append(left, actions);
+      box.append(item);
+    });
+  }
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, (m) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[m]));
+  }
+
+  /* =========================================================
+     3. EDIT EXISTING RIDER
+     ========================================================= */
+  function openEdit(r) {
+    const isVerified = Boolean(r.email_confirmed_at);
+    $('editId').value = r.id;
+    $('editName').value = r.full_name || '';
+    $('editPhone').value = cleanMobile(r.phone || '');
+    $('editVeh').value = (r.vehicle_type || 'motorcycle').toLowerCase();
+    $('editColorMake').value = r.vehicle_color_make || '';
+    $('editPlate').value = r.plate_no || '';
+    $('editCredit').value = Number(r.credit_balance || 0);
+    $('editCod').value = Number(r.cash_on_hand || 2000);
+    $('editActive').value = (isVerified && r.is_active) ? 'true' : 'false';
+    $('editActive').disabled = !isVerified;
+    $('editVerifyNote').hidden = isVerified;
+    $('editPhoto').value = '';
+    setMsg('editMsg', '');
+    $('editCard').hidden = false;
+    $('editCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  $('closeEditBtn').addEventListener('click', () => {
+    $('editCard').hidden = true;
+  });
+
+  $('saveEditBtn').addEventListener('click', async () => {
+    const id = $('editId').value;
+    if (!id) return;
+    const btn = $('saveEditBtn');
+    const riderObj = riders.find((item) => item.id === id);
+    const isVerified = Boolean(riderObj && riderObj.email_confirmed_at);
+
+    let formattedPhone = null;
+    try {
+      formattedPhone = formatFullPhone($('editPhone').value.trim());
+    } catch (phoneErr) {
+      setMsg('editMsg', phoneErr.message, true);
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    setMsg('editMsg', '');
+
+    try {
+      const photoFile = $('editPhoto').files && $('editPhoto').files[0];
+      const profUpdates = {
+        full_name: $('editName').value.trim() || null,
+        phone: formattedPhone
+      };
+      if (photoFile) {
+        profUpdates.avatar_url = await uploadAvatar(id, photoFile);
+      }
+
+      const { error: profErr } = await db
+        .from('profiles')
+        .update(profUpdates)
+        .eq('id', id);
+      if (profErr) throw profErr;
+
+      const { error: riderErr } = await db
+        .from('riders')
+        .update({
+          vehicle_type: $('editVeh').value,
+          vehicle_color_make: $('editColorMake').value.trim() || null,
+          plate_no: $('editPlate').value.trim().toUpperCase() || null,
+          credit_balance: parseFloat($('editCredit').value) || 0,
+          cash_on_hand: parseFloat($('editCod').value) || 0,
+          is_active: isVerified ? ($('editActive').value === 'true') : false
+        })
+        .eq('id', id);
+      if (riderErr) throw riderErr;
+
+      setMsg('editMsg', 'Rider details updated!');
+      await loadRiders();
+    } catch (err) {
+      setMsg('editMsg', 'Update failed: ' + (err.message || err), true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Save Changes';
+    }
+  });
+
+  (async () => {
+    if (isRecovering) {
+      openResetView();
+      return;
+    }
+    const { data } = await db.auth.getSession();
+    if (data && data.session && !isRecovering) await enter(data.session.user);
+    else showView('login');
+  })();
+</script>
+</body>
+</html>

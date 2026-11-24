@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PadalaKo — Delivery Dispatch Admin Menu</title>
+<script>
+  window.__IS_RECOVERY__ =
+    window.location.hash.includes('type=recovery') ||
+    window.location.search.includes('type=recovery') ||
+    window.location.search.includes('code=');
+</script>
 <style>
   :root { --bg:#f5f6f8; --card:#fff; --ink:#1b1f24; --muted:#5b6570; --line:#d9dde3; --brand:#0b6e4f; --err:#b3261e; }
   * { box-sizing: border-box; }
@@ -20,6 +26,8 @@
   button.primary { background:var(--brand); color:#fff; border:0; font-weight:600; }
   button.danger { color:var(--err); border-color:var(--err); }
   button:disabled { opacity:.6; cursor:wait; }
+  .pass-wrap { display:flex; gap:6px; }
+  .pass-wrap button { width:auto; padding:0 14px; flex-shrink:0; }
   .top { display:flex; justify-content:space-between; align-items:center; gap:8px; }
   .top button, .top select { width:auto; }
   .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:10px; }
@@ -33,6 +41,7 @@
   .muted { color:var(--muted); font-size:.88rem; }
   .line { margin-top:6px; }
   .msg { border-radius:10px; padding:10px 12px; margin:10px 0; background:#fdecea; color:var(--err); }
+  .msg.ok { background:#e8f4ef; color:var(--brand); }
   a { color:#1a56db; }
   [hidden] { display:none !important; }
 
@@ -108,15 +117,38 @@
 
   <section id="loginView">
     <h1>Dispatch Admin Login</h1>
-       <div id="loginForm" class="card">
+    <div id="loginForm" class="card">
       <label for="email">Email</label>
       <input id="email" type="email" autocomplete="off">
       <label for="password">Password</label>
-      <input id="password" type="password" autocomplete="new-password">
+      <div class="pass-wrap">
+        <input id="password" type="password" autocomplete="new-password">
+        <button id="togglePassBtn" type="button">Show</button>
+      </div>
       <div id="loginError" class="msg" hidden></div>
       <button id="adminSignInBtn" class="primary" type="button" style="margin-top:14px">Sign in</button>
+      <div style="text-align:center; margin-top:12px;">
+        <a href="#" id="forgotPassLink" style="font-size:.9rem; font-weight:600;">Forgot password?</a>
+      </div>
     </div>
 
+    <!-- Reset Password Box (appears after clicking email reset link) -->
+    <div id="resetBox" class="card" hidden>
+      <h2 style="margin-top:0">Set New Password</h2>
+      <div class="muted">Enter and confirm your new password below (minimum 6 characters).</div>
+      <label for="newPassword">New Password</label>
+      <div class="pass-wrap">
+        <input id="newPassword" type="password" autocomplete="new-password" placeholder="••••••••">
+        <button id="toggleNewPassBtn" type="button">Show</button>
+      </div>
+      <label for="confirmNewPassword">Confirm New Password</label>
+      <div class="pass-wrap">
+        <input id="confirmNewPassword" type="password" autocomplete="new-password" placeholder="••••••••">
+        <button id="toggleConfirmPassBtn" type="button">Show</button>
+      </div>
+      <div id="resetMsg" class="msg" hidden></div>
+      <button id="saveNewPassBtn" class="primary" type="button" style="margin-top:14px">Update Password</button>
+    </div>
   </section>
 
   <section id="appView" hidden>
@@ -233,6 +265,7 @@
   const ACTIVE = ['booked', 'assigned', 'picked_up'];
   let riders = [];
   let timer = null;
+  let isRecovering = Boolean(window.__IS_RECOVERY__);
 
   function h(tag, attrs, ...kids) {
     const e = document.createElement(tag);
@@ -253,14 +286,134 @@
   const isLive = (r) => r.last_seen_at && Date.now() - new Date(r.last_seen_at).getTime() < 10 * 60000;
 
   function showView(name) { $('loginView').hidden = name !== 'login'; $('appView').hidden = name !== 'app'; }
-  function loginError(t) { const e = $('loginError'); e.textContent = t || ''; e.hidden = !t; }
+  function loginError(t) {
+    const e = $('loginError');
+    e.className = 'msg';
+    e.textContent = t || '';
+    e.hidden = !t;
+  }
   function listError(t) { const e = $('listError'); e.textContent = t || ''; e.hidden = !t; }
 
-   $('adminSignInBtn').addEventListener('click', async () => {
+  function openResetView() {
+    isRecovering = true;
+    showView('login');
+    $('loginForm').hidden = true;
+    $('resetBox').hidden = false;
+  }
+
+  $('adminSignInBtn').addEventListener('click', async () => {
     loginError('');
-    const { data, error } = await db.auth.signInWithPassword({ email: $('email').value.trim(), password: $('password').value });
-    if (error) { loginError(error.message); return; }
-    await enter(data.user);
+    const btn = $('adminSignInBtn');
+    btn.disabled = true;
+    btn.textContent = 'Signing in…';
+    try {
+      const { data, error } = await db.auth.signInWithPassword({
+        email: $('email').value.trim(),
+        password: $('password').value
+      });
+      if (error) { loginError(error.message); return; }
+      await enter(data.user);
+    } catch (err) {
+      loginError('Sign-in failed: ' + (err.message || err));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Sign in';
+    }
+  });
+
+  /* Show / Hide Password Toggles */
+  $('togglePassBtn').addEventListener('click', () => {
+    const p = $('password');
+    const show = p.type === 'password';
+    p.type = show ? 'text' : 'password';
+    $('togglePassBtn').textContent = show ? 'Hide' : 'Show';
+  });
+
+  $('toggleNewPassBtn').addEventListener('click', () => {
+    const p = $('newPassword');
+    const show = p.type === 'password';
+    p.type = show ? 'text' : 'password';
+    $('toggleNewPassBtn').textContent = show ? 'Hide' : 'Show';
+  });
+
+  $('toggleConfirmPassBtn').addEventListener('click', () => {
+    const p = $('confirmNewPassword');
+    const show = p.type === 'password';
+    p.type = show ? 'text' : 'password';
+    $('toggleConfirmPassBtn').textContent = show ? 'Hide' : 'Show';
+  });
+
+  /* Forgot Password (Send Reset Email) */
+  $('forgotPassLink').addEventListener('click', async (e) => {
+    e.preventDefault();
+    loginError('');
+    const email = $('email').value.trim();
+    if (!email) {
+      loginError('Please enter your email address first, then click "Forgot password?".');
+      $('email').focus();
+      return;
+    }
+    const { error } = await db.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + window.location.pathname
+    });
+    const box = $('loginError');
+    if (error) {
+      box.className = 'msg';
+      box.textContent = error.message;
+    } else {
+      box.className = 'msg ok';
+      box.textContent = 'Password reset link sent to ' + email + '. Check your inbox (and spam folder).';
+    }
+    box.hidden = false;
+  });
+
+  /* Handle Return from Email Reset Link */
+  db.auth.onAuthStateChange((event) => {
+    if (event === 'PASSWORD_RECOVERY') {
+      openResetView();
+    }
+  });
+
+  $('saveNewPassBtn').addEventListener('click', async () => {
+    const newPassword = $('newPassword').value;
+    const confirmPassword = $('confirmNewPassword').value;
+    const msg = $('resetMsg');
+    msg.hidden = true;
+    if (newPassword.length < 6) {
+      msg.className = 'msg';
+      msg.textContent = 'Password must be at least 6 characters.';
+      msg.hidden = false;
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      msg.className = 'msg';
+      msg.textContent = 'Passwords do not match. Please re-enter.';
+      msg.hidden = false;
+      return;
+    }
+    const btn = $('saveNewPassBtn');
+    btn.disabled = true;
+    btn.textContent = 'Updating…';
+    const { error } = await db.auth.updateUser({ password: newPassword });
+    btn.disabled = false;
+    btn.textContent = 'Update Password';
+    if (error) {
+      msg.className = 'msg';
+      msg.textContent = error.message;
+      msg.hidden = false;
+      return;
+    }
+    msg.className = 'msg ok';
+    msg.textContent = 'Password updated! Redirecting to dashboard…';
+    msg.hidden = false;
+    isRecovering = false;
+    window.history.replaceState({}, document.title, window.location.pathname);
+    setTimeout(async () => {
+      $('resetBox').hidden = true;
+      $('loginForm').hidden = false;
+      const { data } = await db.auth.getSession();
+      if (data && data.session) await enter(data.session.user);
+    }, 1500);
   });
 
   $('signOut').addEventListener('click', async () => {
@@ -305,6 +458,10 @@
   });
 
   async function enter(user) {
+    if (isRecovering) {
+      openResetView();
+      return;
+    }
     const { data: prof, error } = await db.from('profiles').select('role').eq('id', user.id).maybeSingle();
     if (error || !prof || prof.role !== 'admin') {
       await db.auth.signOut();
@@ -351,7 +508,7 @@
     else if (f !== 'all') q = q.eq('status', f);
 
     const [r, o] = await Promise.all([
-    db.from('riders').select('id, vehicle_type, vehicle_color_make, plate_no, is_active, last_seen_at, profiles(full_name, avatar_url)'),
+      db.from('riders').select('id, vehicle_type, vehicle_color_make, plate_no, is_active, last_seen_at, profiles(full_name, avatar_url)'),
       q
     ]);
     if (r.error || o.error) { listError((r.error || o.error).message); return; }
@@ -377,8 +534,7 @@
       o.is_fragile ? 'FRAGILE' : null].filter(Boolean).join(' · ');
 
     const money = peso(o.delivery_fee) + ' · fee by ' + o.payment_method + ' (' + o.payment_status + ') · payer: ' + (o.fee_payer || 'sender') +
-  (Number(o.cod_amount) > 0 ? ' · collect ' + peso(o.cod_amount) + ' from recipient' : '');
-
+      (Number(o.cod_amount) > 0 ? ' · collect ' + peso(o.cod_amount) + ' from recipient' : '');
 
     const vehDetails = rider
       ? [rider.vehicle_color_make, rider.plate_no ? 'Plate: ' + rider.plate_no : null].filter(Boolean).join(' · ')
@@ -488,7 +644,7 @@
         'Fragile',
         'Distance (km)',
         'Delivery Fee (PHP)',
-	'Fee Payer',
+        'Fee Payer',
         'Payment Method',
         'Payment Status',
         'COD Amount (PHP)'
@@ -517,7 +673,7 @@
           o.is_fragile ? 'Yes' : 'No',
           o.distance_km ?? '',
           o.delivery_fee ?? 0,
-	  o.fee_payer || 'sender',
+          o.fee_payer || 'sender',
           o.payment_method || '',
           o.payment_status || '',
           o.cod_amount ?? 0
@@ -551,7 +707,7 @@
     $('mgrMsg').textContent = '';
     $('mgrPhoto').value = '';
     const r = riders.find((x) => x.id === $('mgrRider').value);
-       if (!r) {
+    if (!r) {
       $('mgrColorMake').value = '';
       $('mgrPlate').value = '';
       $('mgrPreview').hidden = true;
@@ -624,8 +780,12 @@
   });
 
   (async () => {
+    if (isRecovering) {
+      openResetView();
+      return;
+    }
     const { data } = await db.auth.getSession();
-    if (data && data.session) await enter(data.session.user);
+    if (data && data.session && !isRecovering) await enter(data.session.user);
     else showView('login');
   })();
 </script>
