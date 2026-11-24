@@ -83,13 +83,14 @@
   <section id="loginView">
     <h1>Rider login</h1>
     <div id="loginForm" class="card">
-      <label for="email">Email</label>
-      <input id="email" type="email" autocomplete="username" required>
-      <label for="password">Password</label>
-      <div class="pass-wrap">
-        <input id="password" type="password" autocomplete="current-password" required>
-        <button id="togglePassBtn" type="button">Show</button>
-      </div>
+         <label for="email">Email</label>
+   <input id="email" type="email" autocomplete="off">
+   <label for="password">Password</label>
+   <div class="pass-wrap">
+     <input id="password" type="password" autocomplete="new-password">
+     <button id="togglePassBtn" type="button">Show</button>
+   </div>
+
       <div id="loginError" class="msg" hidden></div>
       <button id="signInBtn" class="primary" type="button" style="margin-top:14px">Sign in</button>
       <div style="text-align:center; margin-top:12px;">
@@ -244,7 +245,7 @@
   }
 
   $('signInBtn').addEventListener('click', doSignIn);
-  $('password').addEventListener('keydown', (e) => { if (e.key === 'Enter') doSignIn(); });
+  
   /* Show / Hide Password Toggles */
   $('togglePassBtn').addEventListener('click', () => {
     const p = $('password');

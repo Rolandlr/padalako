@@ -108,14 +108,15 @@
 
   <section id="loginView">
     <h1>Dispatch Admin Login</h1>
-    <form id="loginForm" class="card" onsubmit="return false;">
+       <div id="loginForm" class="card">
       <label for="email">Email</label>
-      <input id="email" type="email" autocomplete="username" required>
+      <input id="email" type="email" autocomplete="off">
       <label for="password">Password</label>
-      <input id="password" type="password" autocomplete="current-password" required>
+      <input id="password" type="password" autocomplete="new-password">
       <div id="loginError" class="msg" hidden></div>
-      <button class="primary" type="submit" style="margin-top:14px">Sign in</button>
-    </form>
+      <button id="adminSignInBtn" class="primary" type="button" style="margin-top:14px">Sign in</button>
+    </div>
+
   </section>
 
   <section id="appView" hidden>
@@ -255,13 +256,13 @@
   function loginError(t) { const e = $('loginError'); e.textContent = t || ''; e.hidden = !t; }
   function listError(t) { const e = $('listError'); e.textContent = t || ''; e.hidden = !t; }
 
-  $('loginForm').addEventListener('submit', async (ev) => {
-    ev.preventDefault();
+   $('adminSignInBtn').addEventListener('click', async () => {
     loginError('');
     const { data, error } = await db.auth.signInWithPassword({ email: $('email').value.trim(), password: $('password').value });
     if (error) { loginError(error.message); return; }
     await enter(data.user);
   });
+
   $('signOut').addEventListener('click', async () => {
     clearInterval(timer);
     await db.auth.signOut();
