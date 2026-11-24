@@ -786,11 +786,18 @@
 
   $('shareBtn').addEventListener('click', () => { if (watchId === null) startSharing(); else { stopSharing(); locMsg(''); } });
 
-  (async () => {
+    (async () => {
+    if (window.location.hash.includes('type=recovery') || window.location.search.includes('type=recovery')) {
+      showView('login');
+      $('loginForm').hidden = true;
+      $('resetBox').hidden = false;
+      return;
+    }
     const { data } = await db.auth.getSession();
     if (data && data.session) await enter(data.session.user);
     else showView('login');
   })();
+
 </script>
 </body>
 </html>
