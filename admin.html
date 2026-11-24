@@ -184,6 +184,10 @@
           </select>
         </div>
         <div>
+          <label for="mgrColorMake">Color &amp; Make</label>
+          <input id="mgrColorMake" type="text" placeholder="e.g. White Toyota Fortuner">
+        </div>
+        <div>
           <label for="mgrPlate">Vehicle Plate Number</label>
           <input id="mgrPlate" type="text" placeholder="e.g. 123-ABC">
         </div>
@@ -346,7 +350,7 @@
     else if (f !== 'all') q = q.eq('status', f);
 
     const [r, o] = await Promise.all([
-      db.from('riders').select('id, vehicle_type, plate_no, is_active, last_seen_at, profiles(full_name, avatar_url)'),
+    db.from('riders').select('id, vehicle_type, vehicle_color_make, plate_no, is_active, last_seen_at, profiles(full_name, avatar_url)'),
       q
     ]);
     if (r.error || o.error) { listError((r.error || o.error).message); return; }
@@ -375,8 +379,11 @@
   (Number(o.cod_amount) > 0 ? ' · collect ' + peso(o.cod_amount) + ' from recipient' : '');
 
 
+    const vehDetails = rider
+      ? [rider.vehicle_color_make, rider.plate_no ? 'Plate: ' + rider.plate_no : null].filter(Boolean).join(' · ')
+      : '';
     const riderText = rider
-      ? riderLabel(rider) + (rider.plate_no ? ' (Plate: ' + rider.plate_no + ')' : '')
+      ? riderLabel(rider) + (vehDetails ? ' (' + vehDetails + ')' : '')
       : 'Not assigned';
 
     const kids = [
@@ -543,12 +550,15 @@
     $('mgrMsg').textContent = '';
     $('mgrPhoto').value = '';
     const r = riders.find((x) => x.id === $('mgrRider').value);
-    if (!r) {
+       if (!r) {
+      $('mgrColorMake').value = '';
       $('mgrPlate').value = '';
       $('mgrPreview').hidden = true;
       return;
     }
+    $('mgrColorMake').value = r.vehicle_color_make || '';
     $('mgrPlate').value = r.plate_no || '';
+
     const avatar = r.profiles && r.profiles.avatar_url;
     if (avatar) {
       $('mgrPreview').src = avatar;
@@ -572,10 +582,12 @@
     msg.textContent = '';
 
     try {
+      const colorMake = $('mgrColorMake').value.trim();
       const { error: plateErr } = await db
         .from('riders')
-        .update({ plate_no: plate || null })
+        .update({ vehicle_color_make: colorMake || null, plate_no: plate || null })
         .eq('id', riderId);
+
       if (plateErr) throw plateErr;
 
       if (file) {

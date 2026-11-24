@@ -23,6 +23,8 @@
   button.accept { background:#d97706; color:#fff; border:0; font-weight:600; }
   button.copy-btn { width:auto; display:inline-block; font-size:.76rem; padding:2px 8px; margin-left:6px; border-radius:6px; background:#f1f3f5; color:var(--ink); border:1px solid var(--line); vertical-align:middle; }
   button.copy-btn:active { background:#e2e6ea; }
+  .pass-wrap { display:flex; gap:6px; }
+  .pass-wrap button { width:auto; padding:0 14px; flex-shrink:0; }
   button:disabled { opacity:.6; cursor:not-allowed; }
   .top { display:flex; justify-content:space-between; align-items:center; gap:8px; }
   .top button { width:auto; padding:8px 12px; }
@@ -78,16 +80,34 @@
       </text>
     </svg>
   </header>
-
   <section id="loginView">
     <h1>Rider login</h1>
     <div id="loginForm" class="card">
       <label for="email">Email</label>
       <input id="email" type="email" autocomplete="username" required>
       <label for="password">Password</label>
-      <input id="password" type="password" autocomplete="current-password" required>
+      <div class="pass-wrap">
+        <input id="password" type="password" autocomplete="current-password" required>
+        <button id="togglePassBtn" type="button">Show</button>
+      </div>
       <div id="loginError" class="msg" hidden></div>
       <button id="signInBtn" class="primary" type="button" style="margin-top:14px">Sign in</button>
+      <div style="text-align:center; margin-top:12px;">
+        <a href="#" id="forgotPassLink" style="font-size:.9rem; font-weight:600;">Forgot password?</a>
+      </div>
+    </div>
+
+    <!-- Reset Password Box (appears after clicking email reset link) -->
+    <div id="resetBox" class="card" hidden>
+      <h2 style="margin-top:0">Set New Password</h2>
+      <div class="muted">Enter your new password below (minimum 6 characters).</div>
+      <label for="newPassword">New Password</label>
+      <div class="pass-wrap">
+        <input id="newPassword" type="password" autocomplete="new-password" placeholder="••••••••">
+        <button id="toggleNewPassBtn" type="button">Show</button>
+      </div>
+      <div id="resetMsg" class="msg" hidden></div>
+      <button id="saveNewPassBtn" class="primary" type="button" style="margin-top:14px">Update Password</button>
     </div>
   </section>
 
@@ -225,6 +245,86 @@
 
   $('signInBtn').addEventListener('click', doSignIn);
   $('password').addEventListener('keydown', (e) => { if (e.key === 'Enter') doSignIn(); });
+  /* Show / Hide Password Toggles */
+  $('togglePassBtn').addEventListener('click', () => {
+    const p = $('password');
+    const show = p.type === 'password';
+    p.type = show ? 'text' : 'password';
+    $('togglePassBtn').textContent = show ? 'Hide' : 'Show';
+  });
+
+  $('toggleNewPassBtn').addEventListener('click', () => {
+    const p = $('newPassword');
+    const show = p.type === 'password';
+    p.type = show ? 'text' : 'password';
+    $('toggleNewPassBtn').textContent = show ? 'Hide' : 'Show';
+  });
+
+  /* Forgot Password (Send Reset Email) */
+  $('forgotPassLink').addEventListener('click', async (e) => {
+    e.preventDefault();
+    loginError('');
+    const email = $('email').value.trim();
+    if (!email) {
+      loginError('Please enter your email address first, then click "Forgot password?".');
+      $('email').focus();
+      return;
+    }
+    const { error } = await db.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + window.location.pathname
+    });
+    const box = $('loginError');
+    if (error) {
+      box.className = 'msg';
+      box.textContent = error.message;
+    } else {
+      box.className = 'msg ok';
+      box.textContent = 'Password reset link sent to ' + email + '. Check your inbox (and spam folder).';
+    }
+    box.hidden = false;
+  });
+
+  /* Handle Return from Email Reset Link */
+  db.auth.onAuthStateChange((event) => {
+    if (event === 'PASSWORD_RECOVERY') {
+      showView('login');
+      $('loginForm').hidden = true;
+      $('resetBox').hidden = false;
+    }
+  });
+
+  $('saveNewPassBtn').addEventListener('click', async () => {
+    const newPassword = $('newPassword').value;
+    const msg = $('resetMsg');
+    msg.hidden = true;
+    if (newPassword.length < 6) {
+      msg.className = 'msg';
+      msg.textContent = 'Password must be at least 6 characters.';
+      msg.hidden = false;
+      return;
+    }
+    const btn = $('saveNewPassBtn');
+    btn.disabled = true;
+    btn.textContent = 'Updating…';
+    const { error } = await db.auth.updateUser({ password: newPassword });
+    btn.disabled = false;
+    btn.textContent = 'Update Password';
+    if (error) {
+      msg.className = 'msg';
+      msg.textContent = error.message;
+      msg.hidden = false;
+      return;
+    }
+    msg.className = 'msg ok';
+    msg.textContent = 'Password updated! Redirecting to dashboard…';
+    msg.hidden = false;
+    setTimeout(async () => {
+      $('resetBox').hidden = true;
+      $('loginForm').hidden = false;
+      const { data } = await db.auth.getSession();
+      if (data && data.session) await enter(data.session.user);
+    }, 1500);
+  });
 
   function h(tag, attrs, ...kids) {
     const e = document.createElement(tag);
@@ -374,12 +474,14 @@
       loginError(error ? error.message : 'This account is not a rider.');
       return;
     }
-    const { data: riderRow } = await db.from('riders').select('vehicle_type, credit_balance, cash_on_hand').eq('id', u.id).maybeSingle();
+    const { data: riderRow } = await db.from('riders').select('vehicle_type, vehicle_color_make, plate_no, credit_balance, cash_on_hand').eq('id', u.id).maybeSingle();
     const vType = (riderRow && riderRow.vehicle_type) || 'motorcycle';
+    const vehInfo = [riderRow && riderRow.vehicle_color_make, riderRow && riderRow.plate_no].filter(Boolean).join(' · ');
     user = u;
     $('who').replaceChildren(
       'Signed in as ' + (prof.full_name || u.email) + ' ',
-      h('span', { class: 'badge veh' }, VEH[vType] || vType)
+      h('span', { class: 'badge veh' }, VEH[vType] || vType),
+      vehInfo ? ' · ' + vehInfo : ''
     );
     if (riderRow) {
       $('displayCreditBalance').textContent = peso(Number(riderRow.credit_balance || 0));

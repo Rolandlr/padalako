@@ -1141,7 +1141,8 @@ async function renderAcceptedRider(code, d) {
   }
   card.hidden = false;
   $('acceptedRiderName').textContent = rInfo.name || (d.rider && d.rider.name) || 'Assigned Rider';
-  $('acceptedRiderVehicle').textContent = VEH_LABEL[rInfo.vehicle_type] || rInfo.vehicle_type || 'Motorcycle';
+  $('acceptedRiderVehicle').textContent = (VEH_LABEL[rInfo.vehicle_type] || rInfo.vehicle_type || 'Motorcycle') + (rInfo.vehicle_color_make ? ` (${rInfo.vehicle_color_make})` : '');
+
   $('acceptedRiderPlate').textContent = rInfo.plate_number || 'Pending';
   if (rInfo.phone) {
     $('acceptedRiderPhone').textContent = rInfo.phone;
