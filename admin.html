@@ -11,20 +11,76 @@
     window.location.search.includes('code=');
 </script>
 <style>
-  :root { --bg:#f5f6f8; --card:#fff; --ink:#1b1f24; --muted:#5b6570; --line:#d9dde3; --brand:#0b6e4f; --err:#b3261e; }
+  :root {
+    --bg: #f0f7fa;
+    --card: #ffffff;
+    --surface-sub: #f5fafe;
+    --ink: #0f293a;
+    --muted: #4b687a;
+    --line: #cde1ec;
+    --brand: #0284c7;
+    --brand-ink: #ffffff;
+    --brand-soft: #e0f2fe;
+    --brand-border: #bae6fd;
+    --err: #dc2626;
+    --err-soft: #fef2f2;
+    --badge-bg: #e2eff6;
+    --badge-booked-bg: #fef3c7;
+    --badge-booked-ink: #92400e;
+    --badge-assigned-bg: #e0f2fe;
+    --badge-assigned-ink: #0369a1;
+    --badge-picked-bg: #dbeafe;
+    --badge-picked-ink: #1d4ed8;
+    --badge-delivered-bg: #dcfce7;
+    --badge-delivered-ink: #15803d;
+    --badge-cancelled-bg: #fee2e2;
+    --badge-cancelled-ink: #b91c1c;
+    --pill-hover: #dceef7;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b1620;
+      --card: #132230;
+      --surface-sub: #182b3c;
+      --ink: #e6f2f8;
+      --muted: #8faec2;
+      --line: #233b4e;
+      --brand: #38bdf8;
+      --brand-ink: #061826;
+      --brand-soft: #10324a;
+      --brand-border: #1e4e6e;
+      --err: #f87171;
+      --err-soft: #35161a;
+      --badge-bg: #1d3548;
+      --badge-booked-bg: #3b2a10;
+      --badge-booked-ink: #fcd34d;
+      --badge-assigned-bg: #123852;
+      --badge-assigned-ink: #7dd3fc;
+      --badge-picked-bg: #163056;
+      --badge-picked-ink: #93c5fd;
+      --badge-delivered-bg: #113526;
+      --badge-delivered-ink: #6ee7b7;
+      --badge-cancelled-bg: #3b171b;
+      --badge-cancelled-ink: #fca5a5;
+      --pill-hover: #1d3548;
+    }
+  }
+
   * { box-sizing: border-box; }
   body { margin:0; font:16px/1.45 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--ink); }
   main { max-width:760px; margin:0 auto; padding:16px; }
-  .brand-header { display:flex; align-items:center; gap:10px; margin:4px 0 14px; }
+  .brand-header { display:flex; align-items:center; gap:10px; margin:4px 0 14px; color:var(--ink); }
   .brand-header svg { height:38px; width:auto; display:block; }
   h1 { font-size:1.3rem; margin:6px 0 14px; }
   h2 { font-size:1.05rem; margin:0 0 8px; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin:0 0 12px; }
   label { display:block; font-size:.85rem; color:var(--muted); margin-top:8px; }
-  input, select, button { font:inherit; padding:10px 12px; border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--ink); width:100%; }
+  input, select, button { font:inherit; padding:10px 12px; border:1px solid var(--line); border-radius:8px; background:var(--surface-sub); color:var(--ink); width:100%; }
+  input:focus, select:focus { outline:2px solid var(--brand); outline-offset:-1px; border-color:var(--brand); }
   button { cursor:pointer; }
-  button.primary { background:var(--brand); color:#fff; border:0; font-weight:600; }
-  button.danger { color:var(--err); border-color:var(--err); }
+  button.primary { background:var(--brand); color:var(--brand-ink); border:0; font-weight:600; }
+  button.danger { color:var(--err); border-color:var(--err); background:var(--surface-sub); }
   button:disabled { opacity:.6; cursor:wait; }
   .pass-wrap { display:flex; gap:6px; }
   .pass-wrap button { width:auto; padding:0 14px; flex-shrink:0; }
@@ -35,14 +91,17 @@
   .row > button { flex:1; min-width:90px; }
   .export-grid { display:grid; grid-template-columns:repeat(2, 1fr); gap:10px; }
   @media (max-width:520px) { .export-grid { grid-template-columns:1fr; } }
-  .badge { display:inline-block; font-size:.78rem; font-weight:700; padding:2px 8px; border-radius:999px; background:#e8eaee; }
-  .badge.booked { background:#fff3cd; } .badge.assigned { background:#dbeafe; } .badge.picked_up { background:#e0e7ff; }
-  .badge.delivered { background:#d1fae5; } .badge.cancelled { background:#fde2e1; }
+  .badge { display:inline-block; font-size:.78rem; font-weight:700; padding:2px 8px; border-radius:999px; background:var(--badge-bg); color:var(--ink); }
+  .badge.booked { background:var(--badge-booked-bg); color:var(--badge-booked-ink); }
+  .badge.assigned { background:var(--badge-assigned-bg); color:var(--badge-assigned-ink); }
+  .badge.picked_up { background:var(--badge-picked-bg); color:var(--badge-picked-ink); }
+  .badge.delivered { background:var(--badge-delivered-bg); color:var(--badge-delivered-ink); }
+  .badge.cancelled { background:var(--badge-cancelled-bg); color:var(--badge-cancelled-ink); }
   .muted { color:var(--muted); font-size:.88rem; }
   .line { margin-top:6px; }
-  .msg { border-radius:10px; padding:10px 12px; margin:10px 0; background:#fdecea; color:var(--err); }
-  .msg.ok { background:#e8f4ef; color:var(--brand); }
-  a { color:#1a56db; }
+  .msg { border-radius:10px; padding:10px 12px; margin:10px 0; background:var(--err-soft); color:var(--err); }
+  .msg.ok { background:var(--brand-soft); color:var(--brand); }
+  a { color:var(--brand); }
   [hidden] { display:none !important; }
 
   /* Collapsible Export Styles */
@@ -79,11 +138,11 @@
     padding: 5px 10px;
     font-size: .82rem;
     border-radius: 6px;
-    background: var(--bg);
+    background: var(--surface-sub);
     color: var(--ink);
   }
   .presets button:hover {
-    background: #e8eaee;
+    background: var(--pill-hover);
   }
 </style>
 </head>
@@ -93,24 +152,24 @@
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 265 56" role="img" aria-label="PadalaKo Logo">
       <defs>
         <linearGradient id="pkPinGrad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#19b85b"/>
-          <stop offset="100%" stop-color="#0b6e4f"/>
+          <stop offset="0%" stop-color="#38bdf8"/>
+          <stop offset="100%" stop-color="#0284c7"/>
         </linearGradient>
       </defs>
       <!-- Speed trails -->
-      <rect x="2" y="16" width="11" height="3.2" rx="1.6" fill="#19b85b"/>
-      <rect x="0" y="24" width="14" height="3.2" rx="1.6" fill="#19b85b"/>
-      <rect x="3" y="32" width="10" height="3.2" rx="1.6" fill="#19b85b"/>
+      <rect x="2" y="16" width="11" height="3.2" rx="1.6" fill="#38bdf8"/>
+      <rect x="0" y="24" width="14" height="3.2" rx="1.6" fill="#38bdf8"/>
+      <rect x="3" y="32" width="10" height="3.2" rx="1.6" fill="#38bdf8"/>
       <!-- Location Pin -->
       <path d="M35 4C23.4 4 14 13.2 14 24.6C14 38.5 35 53 35 53C35 53 56 38.5 56 24.6C56 13.2 46.6 4 35 4Z" fill="url(#pkPinGrad)"/>
       <!-- Parcel Cube Inside Pin -->
       <polygon points="35,13 45,18.5 35,24 25,18.5" fill="#ffffff"/>
-      <polygon points="25,18.5 35,24 35,35.5 25,30" fill="#d9f2e4"/>
-      <polygon points="45,18.5 35,24 35,35.5 45,30" fill="#a8e0c2"/>
-      <line x1="30" y1="15.7" x2="40" y2="21.2" stroke="#0b6e4f" stroke-width="1.6" stroke-linecap="round"/>
+      <polygon points="25,18.5 35,24 35,35.5 25,30" fill="#e0f2fe"/>
+      <polygon points="45,18.5 35,24 35,35.5 45,30" fill="#bae6fd"/>
+      <line x1="30" y1="15.7" x2="40" y2="21.2" stroke="#0284c7" stroke-width="1.6" stroke-linecap="round"/>
       <!-- Wordmark -->
       <text x="66" y="37" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="30" font-weight="800" letter-spacing="-0.6">
-        <tspan fill="#0f2942">Padala</tspan><tspan fill="#16a34a">Ko</tspan>
+        <tspan fill="currentColor">Padala</tspan><tspan fill="#0284c7">Ko</tspan>
       </text>
     </svg>
   </header>
