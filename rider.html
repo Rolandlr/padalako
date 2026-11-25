@@ -298,6 +298,10 @@
 
   async function beat() {
     try {
+      // single-device rule: if another device signed in, this one is signed out
+      const { data: st, error: se } = await db.rpc('rider_check_session');
+      if (se) console.warn('Session check failed:', se.message);
+      else if (st === 'replaced') { await forceLogout(KICK_MSG); return; }
       const { error } = await db.rpc('rider_heartbeat');
       if (error) console.warn('Heartbeat failed:', error.message);
     } catch (e) {
@@ -323,6 +327,30 @@
   window.addEventListener('online', resumeHeartbeat);
   window.addEventListener('pageshow', resumeHeartbeat);
 
+  /* Single device per rider */
+  const KICK_MSG = 'You were signed out because this account signed in on another device. Only one device can be active at a time.';
+  let manualSignOut = false, kicking = false;
+
+  // Local sign-out only (scope: 'local'), so the newly active device is NOT signed out.
+  // Does not call rider_go_offline, because the rider is online on the other device.
+  async function forceLogout(msg) {
+    if (kicking) return;
+    kicking = true;
+    try {
+      setAutoAccept(false);
+      stopSharing();
+      stopHeartbeat();
+      clearInterval(timer);
+      knownAvailIds = null;
+      user = null;
+      try { await db.auth.signOut({ scope: 'local' }); } catch (e) { /* session already revoked */ }
+      showView('login');
+      loginError(msg);
+    } finally {
+      kicking = false;
+    }
+  }
+
   function openResetView() {
     isRecovering = true;
     showView('login');
@@ -341,7 +369,7 @@
         password: $('password').value
       });
       if (error) { loginError(error.message); return; }
-      await enter(data.user);
+      await enter(data.user, true);
     } catch (err) {
       loginError('Sign-in failed: ' + (err.message || err));
     } finally {
@@ -403,6 +431,10 @@
     if (event === 'PASSWORD_RECOVERY') {
       openResetView();
     }
+    // session revoked server-side (rider signed in on another device)
+    if (event === 'SIGNED_OUT' && user && !manualSignOut && !kicking) {
+      setTimeout(() => forceLogout(KICK_MSG), 0);
+    }
   });
 
   $('saveNewPassBtn').addEventListener('click', async () => {
@@ -443,7 +475,7 @@
       $('resetBox').hidden = true;
       $('loginForm').hidden = false;
       const { data } = await db.auth.getSession();
-      if (data && data.session) await enter(data.session.user);
+      if (data && data.session) await enter(data.session.user, true);
     }, 1500);
   });
 
@@ -579,21 +611,32 @@
   });
 
   $('signOut').addEventListener('click', async () => {
+    manualSignOut = true;
     setAutoAccept(false);
     stopSharing();
     stopHeartbeat();
-    // mark offline now, while still signed in
+    // only mark offline if this is still the rider's active device
+    let wasActive = true;
     try {
-      const { error } = await db.rpc('rider_go_offline');
-      if (error) console.warn('Go offline failed:', error.message);
-    } catch (e) { console.warn('Go offline failed:', e.message || e); }
+      const { data: rel, error: re } = await db.rpc('rider_release_session');
+      if (!re && rel === false) wasActive = false;
+    } catch (e) { /* function not installed yet: behave as before */ }
+    if (wasActive) {
+      // mark offline now, while still signed in
+      try {
+        const { error } = await db.rpc('rider_go_offline');
+        if (error) console.warn('Go offline failed:', error.message);
+      } catch (e) { console.warn('Go offline failed:', e.message || e); }
+    }
     clearInterval(timer);
     knownAvailIds = null;
-    await db.auth.signOut();
+    user = null;
+    await db.auth.signOut({ scope: 'local' });
     showView('login');
+    manualSignOut = false;
   });
 
-  async function enter(u) {
+  async function enter(u, fresh) {
     if (isRecovering) { openResetView(); return; }
     const { data: prof, error } = await db.from('profiles').select('role, full_name').eq('id', u.id).maybeSingle();
     if (error || !prof || prof.role !== 'rider') {
@@ -602,6 +645,17 @@
       loginError(error ? error.message : 'This account is not a rider.');
       return;
     }
+    // single-device rule: a fresh sign-in takes over; an existing session must still be the active one
+    try {
+      const { data: st, error: se } = fresh ? await db.rpc('rider_claim_session') : await db.rpc('rider_check_session');
+      if (se) console.warn('Session check failed:', se.message);
+      else if (!fresh && st === 'replaced') {
+        await db.auth.signOut({ scope: 'local' });
+        showView('login');
+        loginError(KICK_MSG);
+        return;
+      }
+    } catch (e) { console.warn('Session check failed:', e.message || e); }
     const { data: riderRow } = await db.from('riders').select('vehicle_type, vehicle_color_make, plate_no, credit_balance, cash_on_hand').eq('id', u.id).maybeSingle();
     const vType = (riderRow && riderRow.vehicle_type) || 'motorcycle';
     const vehInfo = [riderRow && riderRow.vehicle_color_make, riderRow && riderRow.plate_no].filter(Boolean).join(' · ');
