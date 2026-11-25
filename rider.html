@@ -582,6 +582,11 @@
     setAutoAccept(false);
     stopSharing();
     stopHeartbeat();
+    // mark offline now, while still signed in
+    try {
+      const { error } = await db.rpc('rider_go_offline');
+      if (error) console.warn('Go offline failed:', error.message);
+    } catch (e) { console.warn('Go offline failed:', e.message || e); }
     clearInterval(timer);
     knownAvailIds = null;
     await db.auth.signOut();
