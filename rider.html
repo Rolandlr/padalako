@@ -329,6 +329,7 @@
 
   /* Single device per rider */
   const KICK_MSG = 'You were signed out because this account signed in on another device. Only one device can be active at a time.';
+  const BLOCK_MSG = 'This account is already signed in on another device. Sign out there first. If that device is off or closed, you can sign in here after about 2 minutes.';
   let manualSignOut = false, kicking = false;
 
   // Local sign-out only (scope: 'local'), so the newly active device is NOT signed out.
@@ -631,7 +632,7 @@
     clearInterval(timer);
     knownAvailIds = null;
     user = null;
-    await db.auth.signOut({ scope: 'local' });
+    await db.auth.signOut();
     showView('login');
     manualSignOut = false;
   });
@@ -649,6 +650,13 @@
     try {
       const { data: st, error: se } = fresh ? await db.rpc('rider_claim_session') : await db.rpc('rider_check_session');
       if (se) console.warn('Session check failed:', se.message);
+      else if (fresh && st === 'blocked') {
+        // another device is already active: refuse this login (server already revoked this new session)
+        await db.auth.signOut({ scope: 'local' });
+        showView('login');
+        loginError(BLOCK_MSG);
+        return;
+      }
       else if (!fresh && st === 'replaced') {
         await db.auth.signOut({ scope: 'local' });
         showView('login');
