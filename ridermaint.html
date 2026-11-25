@@ -288,6 +288,10 @@
   let riders = [];
   let isRecovering = Boolean(window.__IS_RECOVERY__);
 
+  function getConfirmedRedirectUrl() {
+    return new URL('confirmed.html', window.location.href).href;
+  }
+
   /* Mobile number formatting (+63 + 10 digits starting with 9) */
   function cleanMobile(raw) {
     let d = String(raw || '').replace(/[^0-9]/g, '');
@@ -499,11 +503,23 @@
         email,
         password,
         options: {
+          emailRedirectTo: getConfirmedRedirectUrl(),
           data: { role: 'rider', full_name: fullName }
         }
       });
 
       if (signUpErr) throw signUpErr;
+
+      // Prevent profiles_id_fkey error when Supabase returns an obfuscated dummy user for duplicate emails
+      if (
+        signUpData &&
+        signUpData.user &&
+        Array.isArray(signUpData.user.identities) &&
+        signUpData.user.identities.length === 0
+      ) {
+        throw new Error('This email address is already registered in Supabase Authentication.');
+      }
+
       const newUid = signUpData && signUpData.user && signUpData.user.id;
       if (!newUid) throw new Error('Could not obtain new user ID. Check if this email is already registered.');
 
@@ -646,7 +662,13 @@
           resendBtn.disabled = true;
           resendBtn.textContent = 'Sending…';
           try {
-            const { error: resErr } = await db.auth.resend({ type: 'signup', email: r.email });
+            const { error: resErr } = await db.auth.resend({
+              type: 'signup',
+              email: r.email,
+              options: {
+                emailRedirectTo: getConfirmedRedirectUrl()
+              }
+            });
             if (resErr) throw resErr;
             resendBtn.textContent = 'Sent!';
             setTimeout(() => { resendBtn.textContent = 'Resend Email'; resendBtn.disabled = false; }, 3000);
