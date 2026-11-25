@@ -355,7 +355,11 @@
   const $ = (id) => document.getElementById(id);
   const peso = (n) => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(n);
   const VEH_LABEL = { motorcycle: 'Motorcycle', car: 'Car / Sedan', van: 'Van / L300' };
-  const isLive = (r) => r.last_seen_at && (Date.now() - new Date(r.last_seen_at).getTime() < 10 * 60000);
+  const ONLINE_WINDOW_MS = 2 * 60000; // rider heartbeat is every 30s
+  const SYNC_MS = 15000;
+  let syncTimer = null;
+  let loading = false;
+  const isLive = (r) => r.last_seen_at && (Date.now() - new Date(r.last_seen_at).getTime() < ONLINE_WINDOW_MS);
   let riders = [];
   let isRecovering = Boolean(window.__IS_RECOVERY__);
 
@@ -500,6 +504,7 @@
   });
 
   $('signOut').addEventListener('click', async () => {
+    clearInterval(syncTimer);
     await db.auth.signOut();
     showView('login');
   });
@@ -517,7 +522,18 @@
     }
     showView('app');
     await loadRiders();
+    clearInterval(syncTimer);
+    syncTimer = setInterval(autoSync, SYNC_MS);
   }
+
+  async function autoSync() {
+    if (loading || document.hidden || $('appView').hidden) return;
+    // don't redraw while a "Resend Email" request is showing its status
+    if ($('riderList').querySelector('button:disabled')) return;
+    loading = true;
+    try { await loadRiders(); } finally { loading = false; }
+  }
+  document.addEventListener('visibilitychange', autoSync);
 
   async function uploadAvatar(riderId, file) {
     const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
