@@ -11,21 +11,89 @@
     window.location.search.includes('code=');
 </script>
 <style>
-  :root { --bg:#f5f6f8; --card:#fff; --ink:#1b1f24; --muted:#5b6570; --line:#d9dde3; --brand:#0b6e4f; --err:#b3261e; }
+  :root {
+    --bg: #f0f7fa;
+    --card: #ffffff;
+    --surface-sub: #f5fafe;
+    --ink: #0f293a;
+    --muted: #4b687a;
+    --line: #cde1ec;
+    --brand: #0284c7;
+    --brand-ink: #ffffff;
+    --brand-soft: #e0f2fe;
+    --brand-border: #bae6fd;
+    --err: #dc2626;
+    --err-soft: #fef2f2;
+    --sec-bg: #e0f2fe;
+    --sec-border: #bae6fd;
+    --sec-ink: #0369a1;
+    --warn-bg: #fef3c7;
+    --warn-border: #fcd34d;
+    --warn-ink: #92400e;
+    --prefix-bg: #e6f2f8;
+    --badge-bg: #e2eff6;
+    --badge-active-bg: #dcfce7;
+    --badge-active-ink: #15803d;
+    --badge-offline-bg: #e2e8f0;
+    --badge-offline-ink: #475569;
+    --badge-low-bg: #ffedd5;
+    --badge-low-ink: #c2410c;
+    --badge-inactive-bg: #fee2e2;
+    --badge-inactive-ink: #b91c1c;
+    --badge-pending-bg: #fef3c7;
+    --badge-pending-ink: #92400e;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b1620;
+      --card: #132230;
+      --surface-sub: #182b3c;
+      --ink: #e6f2f8;
+      --muted: #8faec2;
+      --line: #233b4e;
+      --brand: #38bdf8;
+      --brand-ink: #061826;
+      --brand-soft: #10324a;
+      --brand-border: #1e4e6e;
+      --err: #f87171;
+      --err-soft: #35161a;
+      --sec-bg: #10324a;
+      --sec-border: #1e4e6e;
+      --sec-ink: #7dd3fc;
+      --warn-bg: #3b2a10;
+      --warn-border: #78350f;
+      --warn-ink: #fcd34d;
+      --prefix-bg: #1d3548;
+      --badge-bg: #1d3548;
+      --badge-active-bg: #113526;
+      --badge-active-ink: #6ee7b7;
+      --badge-offline-bg: #1e293b;
+      --badge-offline-ink: #94a3b8;
+      --badge-low-bg: #431407;
+      --badge-low-ink: #fdba74;
+      --badge-inactive-bg: #3b171b;
+      --badge-inactive-ink: #fca5a5;
+      --badge-pending-bg: #3b2a10;
+      --badge-pending-ink: #fcd34d;
+    }
+  }
+
   * { box-sizing: border-box; }
   body { margin:0; font:16px/1.45 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--ink); }
   main { max-width:760px; margin:0 auto; padding:16px; }
-  .brand-header { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:4px 0 14px; }
+  .brand-header { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:4px 0 14px; color:var(--ink); }
   .brand-header svg { height:38px; width:auto; display:block; }
   h1 { font-size:1.3rem; margin:6px 0 14px; }
   h2 { font-size:1.05rem; margin:0 0 10px; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin:0 0 14px; }
   label { display:block; font-size:.85rem; color:var(--muted); margin-top:8px; }
-  input, select, button { font:inherit; padding:10px 12px; border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--ink); width:100%; }
+  input, select, button { font:inherit; padding:10px 12px; border:1px solid var(--line); border-radius:8px; background:var(--surface-sub); color:var(--ink); width:100%; }
+  input:focus, select:focus { outline:2px solid var(--brand); outline-offset:-1px; border-color:var(--brand); }
   button { cursor:pointer; }
-  button.primary { background:var(--brand); color:#fff; border:0; font-weight:600; }
-  button.secondary { background:#f0f4f2; color:var(--brand); border:1px solid #c3dfd3; font-weight:600; }
-  button.warn { background:#fef3c7; color:#92400e; border:1px solid #fcd34d; font-weight:600; }
+  button.primary { background:var(--brand); color:var(--brand-ink); border:0; font-weight:600; }
+  button.secondary { background:var(--sec-bg); color:var(--sec-ink); border:1px solid var(--sec-border); font-weight:600; }
+  button.warn { background:var(--warn-bg); color:var(--warn-ink); border:1px solid var(--warn-border); font-weight:600; }
   button:disabled { opacity:.6; cursor:wait; }
   .top { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
   .top button, .top a { width:auto; }
@@ -34,27 +102,29 @@
   @media (max-width:600px) { .grid-2, .grid-veh { grid-template-columns:1fr; } }
   .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:12px; }
   .phone { display:flex; }
-  .phone .prefix { display:flex; align-items:center; padding:0 12px; border:1px solid var(--line); border-right:0; border-radius:8px 0 0 8px; background:#eef0f3; color:var(--muted); font-weight:600; }
+  .phone .prefix { display:flex; align-items:center; padding:0 12px; border:1px solid var(--line); border-right:0; border-radius:8px 0 0 8px; background:var(--prefix-bg); color:var(--muted); font-weight:600; }
   .phone input { border-radius:0 8px 8px 0; }
   .pass-wrap { display:flex; gap:6px; }
   .pass-wrap button { width:auto; padding:0 14px; flex-shrink:0; }
-  .badge { display:inline-block; font-size:.75rem; font-weight:700; padding:2px 8px; border-radius:999px; background:#e8eaee; }
-  .badge.active { background:#d1fae5; color:#065f46; }
-  .badge.inactive { background:#fde2e1; color:#991b1b; }
-  .badge.pending { background:#fef3c7; color:#92400e; }
-  .badge.veh { background:#e8f4ef; color:var(--brand); text-transform:uppercase; }
+  .badge { display:inline-block; font-size:.75rem; font-weight:700; padding:2px 8px; border-radius:999px; background:var(--badge-bg); color:var(--ink); margin-left:4px; }
+  .badge.active { background:var(--badge-active-bg); color:var(--badge-active-ink); }
+  .badge.offline { background:var(--badge-offline-bg); color:var(--badge-offline-ink); }
+  .badge.low-credit { background:var(--badge-low-bg); color:var(--badge-low-ink); }
+  .badge.inactive { background:var(--badge-inactive-bg); color:var(--badge-inactive-ink); }
+  .badge.pending { background:var(--badge-pending-bg); color:var(--badge-pending-ink); }
+  .badge.veh { background:var(--brand-soft); color:var(--brand); text-transform:uppercase; }
   .muted { color:var(--muted); font-size:.88rem; }
   .hint { color:var(--muted); font-size:.78rem; margin-top:4px; }
   .msg { border-radius:10px; padding:10px 12px; margin:10px 0 0; font-size:.9rem; }
-  .msg.err { background:#fdecea; color:var(--err); }
-  .msg.ok { background:#e8f4ef; color:var(--brand); }
+  .msg.err { background:var(--err-soft); color:var(--err); }
+  .msg.ok { background:var(--brand-soft); color:var(--brand); }
   .rider-item { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); flex-wrap:wrap; }
   .rider-item:last-child { border-bottom:0; padding-bottom:0; }
   .rider-left { display:flex; align-items:center; gap:12px; }
   .rider-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-  .rider-avatar { width:48px; height:48px; border-radius:50%; object-fit:cover; border:1px solid var(--line); background:#eef0f3; flex-shrink:0; }
-  .nav-link { display:inline-block; padding:8px 12px; border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--ink); text-decoration:none; font-size:.9rem; }
-  a { color:#1a56db; }
+  .rider-avatar { width:48px; height:48px; border-radius:50%; object-fit:cover; border:1px solid var(--line); background:var(--prefix-bg); flex-shrink:0; }
+  .nav-link { display:inline-block; padding:8px 12px; border:1px solid var(--line); border-radius:8px; background:var(--surface-sub); color:var(--ink); text-decoration:none; font-size:.9rem; }
+  a { color:var(--brand); }
   [hidden] { display:none !important; }
 </style>
 </head>
@@ -64,20 +134,20 @@
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 265 56" role="img" aria-label="PadalaKo Logo">
       <defs>
         <linearGradient id="pkPinGrad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#19b85b"/>
-          <stop offset="100%" stop-color="#0b6e4f"/>
+          <stop offset="0%" stop-color="#38bdf8"/>
+          <stop offset="100%" stop-color="#0284c7"/>
         </linearGradient>
       </defs>
-      <rect x="2" y="16" width="11" height="3.2" rx="1.6" fill="#19b85b"/>
-      <rect x="0" y="24" width="14" height="3.2" rx="1.6" fill="#19b85b"/>
-      <rect x="3" y="32" width="10" height="3.2" rx="1.6" fill="#19b85b"/>
+      <rect x="2" y="16" width="11" height="3.2" rx="1.6" fill="#38bdf8"/>
+      <rect x="0" y="24" width="14" height="3.2" rx="1.6" fill="#38bdf8"/>
+      <rect x="3" y="32" width="10" height="3.2" rx="1.6" fill="#38bdf8"/>
       <path d="M35 4C23.4 4 14 13.2 14 24.6C14 38.5 35 53 35 53C35 53 56 38.5 56 24.6C56 13.2 46.6 4 35 4Z" fill="url(#pkPinGrad)"/>
       <polygon points="35,13 45,18.5 35,24 25,18.5" fill="#ffffff"/>
-      <polygon points="25,18.5 35,24 35,35.5 25,30" fill="#d9f2e4"/>
-      <polygon points="45,18.5 35,24 35,35.5 45,30" fill="#a8e0c2"/>
-      <line x1="30" y1="15.7" x2="40" y2="21.2" stroke="#0b6e4f" stroke-width="1.6" stroke-linecap="round"/>
+      <polygon points="25,18.5 35,24 35,35.5 25,30" fill="#e0f2fe"/>
+      <polygon points="45,18.5 35,24 35,35.5 45,30" fill="#bae6fd"/>
+      <line x1="30" y1="15.7" x2="40" y2="21.2" stroke="#0284c7" stroke-width="1.6" stroke-linecap="round"/>
       <text x="66" y="37" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="30" font-weight="800" letter-spacing="-0.6">
-        <tspan fill="#0f2942">Padala</tspan><tspan fill="#16a34a">Ko</tspan>
+        <tspan fill="currentColor">Padala</tspan><tspan fill="#0284c7">Ko</tspan>
       </text>
     </svg>
   </header>
@@ -251,7 +321,7 @@
           <label for="editActive">Account Status</label>
           <select id="editActive">
             <option value="true">Active (Can accept jobs)</option>
-            <option value="false">Inactive (Suspended)</option>
+            <option value="false">Banned / Inactive (Suspended)</option>
           </select>
           <div id="editVerifyNote" class="hint" hidden>Rider must verify their email before they can be marked Active.</div>
         </div>
@@ -285,6 +355,7 @@
   const $ = (id) => document.getElementById(id);
   const peso = (n) => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(n);
   const VEH_LABEL = { motorcycle: 'Motorcycle', car: 'Car / Sedan', van: 'Van / L300' };
+  const isLive = (r) => r.last_seen_at && (Date.now() - new Date(r.last_seen_at).getTime() < 10 * 60000);
   let riders = [];
   let isRecovering = Boolean(window.__IS_RECOVERY__);
 
@@ -586,14 +657,22 @@
      ========================================================= */
   async function loadRiders() {
     setMsg('listError', '', true);
-    const { data, error } = await db.rpc('get_riders_with_auth');
+    const [{ data, error }, { data: riderMeta }] = await Promise.all([
+      db.rpc('get_riders_with_auth'),
+      db.from('riders').select('id, last_seen_at')
+    ]);
 
     if (error) {
       setMsg('listError', 'Database RPC error (make sure get_riders_with_auth SQL function is updated): ' + error.message, true);
       return;
     }
 
-    riders = data || [];
+    const seenMap = new Map((riderMeta || []).map((item) => [item.id, item.last_seen_at]));
+    riders = (data || []).map((r) => ({
+      ...r,
+      last_seen_at: r.last_seen_at || seenMap.get(r.id) || null
+    }));
+
     $('riderCount').textContent = String(riders.length);
     const box = $('riderList');
     box.replaceChildren();
@@ -607,15 +686,21 @@
       const name = r.full_name || ('Rider ' + r.id.slice(0, 4));
       const vType = (r.vehicle_type || 'motorcycle').toLowerCase();
       const isVerified = Boolean(r.email_confirmed_at);
+      const creditBal = Number(r.credit_balance || 0);
+      const online = isLive(r);
 
-      let statusClass = 'inactive';
-      let statusLabel = 'Inactive';
+      let statusBadgesHtml = '';
       if (!isVerified) {
-        statusClass = 'pending';
-        statusLabel = 'Pending Verification';
-      } else if (r.is_active) {
-        statusClass = 'active';
-        statusLabel = 'Active';
+        statusBadgesHtml = '<span class="badge pending">Pending Verification</span>';
+      } else if (!r.is_active) {
+        statusBadgesHtml = '<span class="badge inactive">Ban</span>';
+      } else {
+        statusBadgesHtml = online
+          ? '<span class="badge active">Active-Online</span>'
+          : '<span class="badge offline">Active-Offline</span>';
+        if (creditBal < 200) {
+          statusBadgesHtml += '<span class="badge low-credit">Low Credit</span>';
+        }
       }
 
       const item = document.createElement('div');
@@ -634,7 +719,7 @@
         <div>
           <strong>${escapeHtml(name)}</strong>
           <span class="badge veh">${escapeHtml(VEH_LABEL[vType] || vType)}</span>
-          <span class="badge ${statusClass}">${statusLabel}</span>
+          ${statusBadgesHtml}
         </div>
         <div class="muted">
           ${r.vehicle_color_make ? 'Vehicle: <strong>' + escapeHtml(r.vehicle_color_make) + '</strong> · ' : ''}Plate: <strong>${escapeHtml(r.plate_no || 'None')}</strong>
@@ -642,7 +727,7 @@
           ${r.email ? ' · ' + escapeHtml(r.email) : ''}
         </div>
         <div class="muted">
-          Credit Wallet: <strong>${peso(Number(r.credit_balance || 0))}</strong> · COD Limit: <strong>${peso(Number(r.cash_on_hand || 0))}</strong>
+          Credit Wallet: <strong>${peso(creditBal)}</strong> · COD Limit: <strong>${peso(Number(r.cash_on_hand || 0))}</strong>
         </div>
       `;
 
