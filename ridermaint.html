@@ -342,6 +342,7 @@
       <div class="top" style="margin-bottom:6px">
         <h2 style="margin:0">Registered Riders (<span id="riderCount">0</span>)</h2>
       </div>
+      <div id="lastUpdated" class="hint"></div>
       <div id="listError" class="msg err" hidden></div>
       <div id="riderList"></div>
     </div>
@@ -351,7 +352,9 @@
 <script src="config.js"></script>
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <script>
-  const db = supabase.createClient(APP_CONFIG.SUPABASE_URL, APP_CONFIG.SUPABASE_ANON_KEY);
+  // own login slot, so rider and customer sign-ins don't replace the admin login
+  const db = supabase.createClient(APP_CONFIG.SUPABASE_URL, APP_CONFIG.SUPABASE_ANON_KEY,
+    { auth: { storageKey: 'padalako-admin' } });
   const $ = (id) => document.getElementById(id);
   const peso = (n) => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(n);
   const VEH_LABEL = { motorcycle: 'Motorcycle', car: 'Car / Sedan', van: 'Van / L300' };
@@ -359,6 +362,7 @@
   const SYNC_MS = 15000;
   let syncTimer = null;
   let loading = false;
+  let adminId = null;
   const isLive = (r) => r.last_seen_at && (Date.now() - new Date(r.last_seen_at).getTime() < ONLINE_WINDOW_MS);
   let riders = [];
   let isRecovering = Boolean(window.__IS_RECOVERY__);
@@ -509,7 +513,20 @@
     showView('login');
   });
 
-  $('refreshBtn').addEventListener('click', loadRiders);
+  $('refreshBtn').addEventListener('click', async () => {
+    const btn = $('refreshBtn');
+    btn.disabled = true;
+    btn.textContent = 'Refreshing…';
+    try {
+      // short pause so the click is visible even when the reload is instant
+      await Promise.all([loadRiders(), new Promise((done) => setTimeout(done, 600))]);
+    } catch (e) {
+      setMsg('listError', 'Refresh failed: ' + (e.message || e), true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Refresh';
+    }
+  });
 
   async function enter(user) {
     if (isRecovering) { openResetView(); return; }
@@ -520,6 +537,7 @@
       setMsg('loginError', 'This account is not an admin.', true);
       return;
     }
+    adminId = user.id;
     showView('app');
     await loadRiders();
     clearInterval(syncTimer);
@@ -672,6 +690,15 @@
      2. LOAD & RENDER REGISTERED RIDERS
      ========================================================= */
   async function loadRiders() {
+    // stop if the admin login ended or changed (e.g. signed out in another tab)
+    const { data: auth } = await db.auth.getSession();
+    if (!auth.session || auth.session.user.id !== adminId) {
+      clearInterval(syncTimer);
+      $('editCard').hidden = true;
+      showView('login');
+      setMsg('loginError', 'Your admin session ended. Please sign in again.', true);
+      return;
+    }
     setMsg('listError', '', true);
     const [{ data, error }, { data: riderMeta }] = await Promise.all([
       db.rpc('get_riders_with_auth'),
@@ -690,6 +717,7 @@
     }));
 
     $('riderCount').textContent = String(riders.length);
+    $('lastUpdated').textContent = 'Last updated ' + new Date().toLocaleTimeString('en-PH');
     const box = $('riderList');
     box.replaceChildren();
 

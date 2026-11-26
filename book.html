@@ -375,7 +375,9 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="config.js"></script>
 <script>
-const db = supabase.createClient(APP_CONFIG.SUPABASE_URL, APP_CONFIG.SUPABASE_ANON_KEY);
+// own login slot, so a customer sign-in doesn't replace the admin login
+const db = supabase.createClient(APP_CONFIG.SUPABASE_URL, APP_CONFIG.SUPABASE_ANON_KEY,
+  { auth: { storageKey: 'padalako-customer' } });
 const $ = (id) => document.getElementById(id);
   $('feePayer').addEventListener('change', () => {
     if ($('feePayer').value === 'recipient') {

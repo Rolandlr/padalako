@@ -324,7 +324,9 @@
 <script src="config.js"></script>
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <script>
-  const db = supabase.createClient(APP_CONFIG.SUPABASE_URL, APP_CONFIG.SUPABASE_ANON_KEY);
+  // own login slot, so rider and customer sign-ins don't replace the admin login
+  const db = supabase.createClient(APP_CONFIG.SUPABASE_URL, APP_CONFIG.SUPABASE_ANON_KEY,
+    { auth: { storageKey: 'padalako-admin' } });
   const $ = (id) => document.getElementById(id);
   const peso = (n) => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(n);
   const LABEL = { booked: 'Booked', assigned: 'Rider assigned', picked_up: 'Picked up/On the way', delivered: 'Delivered', cancelled: 'Cancelled' };
