@@ -729,10 +729,13 @@ let pinnedCoords = { pickup: null, dropoff: null };
 
 async function callDelivery(payload) {
   let res;
+  // the delivery service only accepts signed-in customers
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) return { ok: false, error: 'Your sign-in ended. Please refresh the page and sign in again.' };
   try {
     res = await fetch(FN_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', apikey: APP_CONFIG.SUPABASE_ANON_KEY },
+      headers: { 'Content-Type': 'application/json', apikey: APP_CONFIG.SUPABASE_ANON_KEY, Authorization: 'Bearer ' + session.access_token },
       body: JSON.stringify(payload)
     });
   } catch (e) {
@@ -1011,6 +1014,7 @@ async function requestQuote(usePins = false) {
   $('quote').textContent = peso(res.fee);
   $('calcMsg').style.color = '';
   $('calcMsg').textContent = res.distance_km + ' km by road (' + (VEH_LABEL[veh] || veh) + (veh === 'motorcycle' ? ', non-expressway route' : '') + ')';
+  if (res.estimated) $('calcMsg').textContent = res.distance_km + ' km estimated (road routing is unavailable right now)';
   const box = $('calcDetail');
   box.replaceChildren();
   [['Pickup', res.pickup, 'pickup'], ['Drop-off', res.dropoff, 'dropoff']].forEach(([label, p, key]) => {
