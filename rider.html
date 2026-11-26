@@ -281,7 +281,8 @@
     throw new Error('APP_CONFIG missing');
   }
 
-  const db = window.supabase.createClient(APP_CONFIG.SUPABASE_URL, APP_CONFIG.SUPABASE_ANON_KEY);
+  const db = window.supabase.createClient(APP_CONFIG.SUPABASE_URL, APP_CONFIG.SUPABASE_ANON_KEY,
+    { auth: { storageKey: 'padalako-rider' } });
   const peso = (n) => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(n);
   const LABEL = { assigned: 'Go pick up', picked_up: 'On the way' };
   const VEH = { motorcycle: 'Motorcycle', car: 'Car / Sedan', van: 'Van / L300' };
