@@ -219,6 +219,13 @@
       </div>
     </div>
 
+    <details class="card" open>
+      <summary>Credit Top-up Requests <span id="topupCount" class="badge booked">0</span></summary>
+      <div class="muted">Check your GCash / Maya / bank history first. The reference number and the amount must both match.</div>
+      <div id="topupError" class="msg" hidden></div>
+      <div id="topups"></div>
+    </details>
+
     <details class="card">
       <summary>Export deliveries to spreadsheet (CSV / Excel)</summary>
       <div class="export-grid">
@@ -567,13 +574,62 @@
     else if (f !== 'all') q = q.eq('status', f);
 
     const [r, o] = await Promise.all([
-      db.from('riders').select('id, vehicle_type, vehicle_color_make, plate_no, is_active, last_seen_at, profiles(full_name, avatar_url)'),
+      db.from('riders').select('id, credit_balance, vehicle_type, vehicle_color_make, plate_no, is_active, last_seen_at, profiles(full_name, avatar_url)'),
       q
     ]);
     if (r.error || o.error) { listError((r.error || o.error).message); return; }
     riders = r.data || [];
     syncExportRiders();
     render(o.data || []);
+    await loadTopups();
+  }
+
+  /* Credit Top-up Approval */
+  function topupError(t) { const e = $('topupError'); e.textContent = t || ''; e.hidden = !t; }
+
+  async function loadTopups() {
+    const { data, error } = await db.from('credit_topups')
+      .select('id, rider_id, amount, payment_method, reference_no, created_at')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: true });
+    if (error) { topupError(error.message); return; }
+    topupError('');
+    const list = data || [];
+    $('topupCount').textContent = String(list.length);
+    const box = $('topups');
+    box.replaceChildren();
+    if (!list.length) { box.append(h('div', { class: 'muted line' }, 'No pending requests.')); return; }
+    list.forEach((t) => box.append(topupRow(t)));
+  }
+
+  function topupRow(t) {
+    const rider = riders.find((r) => r.id === t.rider_id);
+    const name = rider ? riderLabel(rider) : 'Rider ' + t.rider_id.slice(0, 4);
+    const approve = h('button', { class: 'primary', type: 'button', onclick: () => decide(true) }, 'Approve');
+    const reject = h('button', { class: 'danger', type: 'button', onclick: () => decide(false) }, 'Reject');
+
+    async function decide(ok) {
+      const details = name + '\n' + peso(t.amount) + ' via ' + t.payment_method + '\nRef: ' + t.reference_no;
+      const question = ok
+        ? 'Have you received this payment? Approving adds the credit now.\n\n' + details
+        : 'Reject this request? No credit will be added.\n\n' + details;
+      if (!confirm(question)) return;
+      approve.disabled = reject.disabled = true;
+      const { error } = await db.rpc(ok ? 'approve_credit_topup' : 'reject_credit_topup', { p_topup_id: t.id });
+      if (error) {
+        alert(error.code === '23505'
+          ? 'This reference number was already approved before. Reject this request.'
+          : error.message);
+      }
+      await refresh();
+    }
+
+    return h('div', { class: 'line', style: 'border-top:1px solid var(--line); padding-top:10px; margin-top:10px' },
+      h('div', { class: 'top' }, h('strong', {}, name), h('strong', {}, peso(t.amount))),
+      h('div', {}, t.payment_method + ' Ref: ', h('strong', {}, t.reference_no)),
+      h('div', { class: 'muted' }, 'Requested ' + when(t.created_at) +
+        (rider ? ' · current credit ' + peso(rider.credit_balance || 0) : '')),
+      h('div', { class: 'row' }, approve, reject));
   }
 
   function render(orders) {
