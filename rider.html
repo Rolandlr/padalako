@@ -746,8 +746,12 @@
         btn.disabled = true;
         btn.textContent = 'Accepting…';
         const { error } = await db.rpc('claim_order', { p_order_id: o.id });
-        if (error) alert(error.message);
-        await refreshAll();
+if (error) {
+  alert(error.code === '23505'
+    ? 'Finish your current delivery before accepting another.'
+    : error.message);
+}
+await refreshAll();
       }
     }, 'Accept job');
     return h('div', { class: 'card avail' },
