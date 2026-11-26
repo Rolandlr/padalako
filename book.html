@@ -99,12 +99,33 @@
   .auth-tab.active { border-color:var(--brand); background:var(--brand-soft); color:var(--brand); }
   .user-bar { display:flex; justify-content:space-between; align-items:center; gap:10px; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 14px; margin-bottom:14px; font-size:.88rem; }
   .user-bar button { width:auto; padding:6px 12px; margin:0; }
+  .brand-header { justify-content:flex-start; position:relative; }
+  .menu-btn { width:44px; height:44px; padding:0; font-size:1.35rem; line-height:1; flex-shrink:0; cursor:pointer; }
+  .menu { position:absolute; top:50px; left:0; z-index:1000; width:220px; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:6px; box-shadow:0 8px 24px rgba(0,0,0,.2); }
+  .menu button { text-align:left; border:0; background:transparent; cursor:pointer; font-weight:600; }
+  .menu button:hover, .menu button.active { background:var(--brand-soft); }
+  .tabs { display:grid; grid-template-columns:repeat(3, 1fr); border-bottom:1px solid var(--line); margin-bottom:12px; }
+  .tabs button { border:0; border-bottom:3px solid transparent; border-radius:0; background:transparent; color:var(--muted); font-weight:600; padding:10px 4px; cursor:pointer; }
+  .tabs button.active { color:var(--brand-accent); border-bottom-color:var(--brand-accent); }
+  .order-card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin-bottom:12px; }
+  .order-top { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .status-pill { font-size:.76rem; font-weight:700; padding:2px 9px; border-radius:999px; background:var(--brand-soft); color:var(--brand-accent); white-space:nowrap; }
+  .stop { display:flex; gap:8px; margin-top:8px; font-size:.9rem; }
+  .stop .dot { margin-top:6px; flex-shrink:0; }
+  .order-bottom { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:10px; border-top:1px solid var(--line); padding-top:10px; }
+  .order-bottom button { width:auto; margin:0; }
   [hidden] { display:none !important; }
 </style>
 </head>
 <body>
 <main>
   <header class="brand-header" aria-label="PadalaKo">
+    <button id="menuBtn" class="menu-btn" type="button" aria-label="Menu" aria-expanded="false" hidden>&#9776;</button>
+    <nav id="menu" class="menu" hidden>
+      <button type="button" data-view="book">Book a Delivery</button>
+      <button type="button" data-view="orders">Orders</button>
+      <button type="button" data-view="help">Help Center</button>
+    </nav>
        <svg viewBox="0 0 265 56" role="img" aria-label="PadalaKo Logo">
       <defs>
         <linearGradient id="pkPinGrad" x1="0" y1="0" x2="1" y2="1">
@@ -189,6 +210,7 @@
       <button id="logoutBtn" type="button" class="secondary">Sign out</button>
     </div>
 
+    <div id="bookView">
     <h1>Book a Delivery</h1>
 
     <div id="locNote" class="msg err" hidden>Could not load the province, city and barangay lists. Please type them instead.</div>
@@ -368,6 +390,26 @@
       </div>
       <ul id="timeline" class="timeline"></ul>
     </fieldset>
+    </div>
+
+    <section id="ordersView" hidden>
+      <h1>Orders</h1>
+      <div class="tabs" id="orderTabs">
+        <button type="button" data-tab="ongoing" class="active">Ongoing</button>
+        <button type="button" data-tab="completed">Completed</button>
+        <button type="button" data-tab="cancelled">Cancelled</button>
+      </div>
+      <div id="orderList"></div>
+      <div class="hint">Showing bookings from the last 6 months.</div>
+    </section>
+
+    <section id="helpView" hidden>
+      <h1>Help Center</h1>
+      <div class="order-card">
+        For assistance about your order, please contact <a href="tel:09981809349" style="color:var(--brand-accent);font-weight:700">09981809349</a>
+        via call, SMS, WhatsApp or Viber, with your booking ref number.
+      </div>
+    </section>
   </div>
 </main>
 
@@ -525,6 +567,12 @@ $('verifyOtpBtn').addEventListener('click', async () => {
 
 $('logoutBtn').addEventListener('click', async () => {
   await db.auth.signOut();
+  // clear the previous customer's orders from the page
+  customerId = null;
+  ordersLoad++;
+  $('orderList').replaceChildren();
+  $('menuBtn').hidden = true;
+  closeMenu();
   $('appContent').hidden = true;
   $('authSection').hidden = false;
   $('otpVerifyWrap').hidden = true;
@@ -536,6 +584,9 @@ function applyAuthenticatedUser(user) {
   if (!user) return;
   $('authSection').hidden = true;
   $('appContent').hidden = false;
+  customerId = user.id;
+  $('menuBtn').hidden = false;
+  showSection('book');
 
   const meta = user.user_metadata || {};
   const roleLabel = (meta.role === 'receiver') ? 'Receiver' : 'Sender';
@@ -1253,6 +1304,103 @@ $('trackBtn').addEventListener('click', () => {
   track(code, false);
   trackTimer = setInterval(() => track(code, true), 15000);
 });
+
+/* =========================================================
+   MENU, ORDERS AND HELP CENTER
+   ========================================================= */
+var customerId = null;
+let orderTab = 'ongoing', ordersLoad = 0;
+const TAB_STATUS = { ongoing: ['booked', 'assigned', 'picked_up'], completed: ['delivered'], cancelled: ['cancelled'] };
+
+function closeMenu() {
+  $('menu').hidden = true;
+  $('menuBtn').setAttribute('aria-expanded', 'false');
+}
+
+function showSection(name) {
+  $('bookView').hidden = name !== 'book';
+  $('ordersView').hidden = name !== 'orders';
+  $('helpView').hidden = name !== 'help';
+  document.querySelectorAll('#menu button').forEach((b) => b.classList.toggle('active', b.dataset.view === name));
+  closeMenu();
+  if (name === 'orders') loadOrders();
+  if (name === 'book') {
+    // maps need a redraw after being hidden
+    requestAnimationFrame(() => { if (bookMap) bookMap.invalidateSize(); if (map) map.invalidateSize(); });
+  }
+}
+
+$('menuBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  $('menu').hidden = !$('menu').hidden;
+  $('menuBtn').setAttribute('aria-expanded', String(!$('menu').hidden));
+});
+document.addEventListener('click', (e) => { if (!$('menu').contains(e.target)) closeMenu(); });
+$('menu').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (b) showSection(b.dataset.view);
+});
+$('orderTabs').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  orderTab = b.dataset.tab;
+  document.querySelectorAll('#orderTabs button').forEach((t) => t.classList.toggle('active', t === b));
+  loadOrders();
+});
+
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text != null) node.textContent = text;
+  return node;
+}
+
+async function loadOrders() {
+  if (!customerId) return;
+  const seq = ++ordersLoad;
+  const box = $('orderList');
+  box.replaceChildren(el('div', 'hint', 'Loading…'));
+  const since = new Date();
+  since.setMonth(since.getMonth() - 6);
+  const { data, error } = await db.from('orders')
+    .select('tracking_code, status, created_at, pickup_address, dropoff_address, delivery_fee, vehicle_type')
+    .eq('customer_id', customerId)
+    .in('status', TAB_STATUS[orderTab])
+    .gte('created_at', since.toISOString())
+    .order('created_at', { ascending: false })
+    .limit(200);
+  if (seq !== ordersLoad) return;   // a newer tab or sign-out replaced this request
+  if (error) { box.replaceChildren(el('div', 'msg err', 'Could not load your orders. Please try again.')); return; }
+  if (!data.length) { box.replaceChildren(el('div', 'order-card hint', 'No ' + orderTab + ' orders.')); return; }
+  box.replaceChildren(...data.map(orderCard));
+}
+
+function orderCard(o) {
+  const card = el('div', 'order-card');
+  const top = el('div', 'order-top');
+  top.append(el('strong', '', new Date(o.created_at).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })),
+    el('span', 'status-pill', STATUS_LABEL[o.status] || o.status));
+  card.append(top, el('div', 'hint', (VEH_LABEL[o.vehicle_type] || 'Motorcycle') + ' · Ref: ' + o.tracking_code));
+  [['#0b6e4f', o.pickup_address], ['#b3261e', o.dropoff_address]].forEach(([color, address]) => {
+    const stop = el('div', 'stop');
+    const dot = el('i', 'dot');
+    dot.style.background = color;
+    stop.append(dot, el('span', '', address));
+    card.append(stop);
+  });
+  const bottom = el('div', 'order-bottom');
+  const track = el('button', 'secondary', 'Track');
+  track.type = 'button';
+  track.addEventListener('click', () => {
+    showSection('book');
+    $('trackCode').value = o.tracking_code;
+    $('trackBtn').click();
+    $('trackCode').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+  bottom.append(el('strong', '', peso(o.delivery_fee)), track);
+  card.append(bottom);
+  return card;
+}
 
 /* Check active session on page load */
 (async () => {
