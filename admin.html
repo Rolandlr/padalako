@@ -236,6 +236,13 @@
     </details>
 
     <details class="card">
+      <summary>Booking Limits &amp; Blocks <span id="limitCount" class="badge">0</span></summary>
+      <div class="muted">Standard limits: 5 ongoing, 20 a day, and a 24-hour pause on the 4th cancellation. To block a customer or raise limits, use the buttons on one of their orders.</div>
+      <div id="limitError" class="msg" hidden></div>
+      <div id="limits"></div>
+    </details>
+
+    <details class="card">
       <summary>Export deliveries to spreadsheet (CSV / Excel)</summary>
       <div class="export-grid">
         <div>
@@ -594,6 +601,7 @@
     render(o.data || []);
     await loadTopups();
     await loadFees();
+    await loadLimits();
   }
 
   /* Credit Top-up Approval */
@@ -725,6 +733,78 @@
       h('div', { class: 'row' }, approve, waive));
   }
 
+  /* Booking limits and blocks */
+  let limitRows = [];
+
+  async function loadLimits() {
+    const { data, error } = await db.rpc('admin_booking_limits');
+    const err = $('limitError');
+    err.textContent = error ? error.message : '';
+    err.hidden = !error;
+    if (error) return;
+    limitRows = data || [];
+    $('limitCount').textContent = String(limitRows.length);
+    const rows = limitRows.map((c) => {
+      const state = [
+        c.blocked ? 'BLOCKED' + (c.blocked_reason ? ': ' + c.blocked_reason : '') : null,
+        c.paused_until ? 'Paused until ' + when(c.paused_until) : null,
+        c.max_active || c.max_daily ? 'Limits: ' + (c.max_active || 5) + ' ongoing, ' + (c.max_daily || 20) + ' a day' : null
+      ].filter(Boolean).join(' · ');
+      return h('div', { class: 'line', style: 'border-top:1px solid var(--line); padding-top:10px; margin-top:10px' },
+        h('div', {}, h('strong', {}, c.name), ' ', c.login || ''),
+        h('div', { class: 'muted' }, state),
+        h('div', { class: 'row' },
+          c.blocked ? h('button', { type: 'button', onclick: () => setBlock(c.customer_id, c.name, false) }, 'Unblock') : null,
+          c.paused_until ? h('button', { type: 'button', onclick: () => liftPause(c) }, 'Lift pause') : null,
+          h('button', { type: 'button', onclick: () => changeLimits(c.customer_id, c.name) }, 'Change limits')));
+    });
+    $('limits').replaceChildren(...(rows.length ? rows : [h('div', { class: 'muted line' }, 'No blocked, paused or special accounts.')]));
+  }
+
+  async function saveLimits(id, values) {
+    const now = limitRows.find((c) => c.customer_id === id) || {};
+    const next = { max_active: now.max_active ?? null, max_daily: now.max_daily ?? null,
+      blocked: Boolean(now.blocked), blocked_reason: now.blocked_reason ?? null, ...values };
+    const { error } = await db.rpc('admin_set_customer_limits', { p_customer: id, p_max_active: next.max_active,
+      p_max_daily: next.max_daily, p_blocked: next.blocked, p_reason: next.blocked_reason });
+    if (error) alert(error.message);
+    await refresh();
+  }
+
+  async function setBlock(id, name, blocked) {
+    if (!blocked) {
+      if (confirm('Allow ' + name + ' to book again?')) await saveLimits(id, { blocked: false, blocked_reason: null });
+      return;
+    }
+    const reason = prompt('Block ' + name + ' from booking?\nEnter the reason:');
+    if (reason === null) return;
+    if (!reason.trim()) { alert('A reason is required.'); return; }
+    await saveLimits(id, { blocked: true, blocked_reason: reason.trim() });
+  }
+
+  async function changeLimits(id, name) {
+    const now = limitRows.find((c) => c.customer_id === id) || {};
+    const ask = (label, current, standard) => {
+      const v = prompt(name + '\n' + label + ' (standard ' + standard + '):', String(current || standard));
+      if (v === null) return undefined;
+      const n = Number(v);
+      if (!Number.isInteger(n) || n < 1 || n > 1000) { alert('Enter a whole number from 1 to 1000.'); return undefined; }
+      return n === standard ? null : n;
+    };
+    const active = ask('Ongoing bookings allowed', now.max_active, 5);
+    if (active === undefined) return;
+    const daily = ask('Bookings allowed per day', now.max_daily, 20);
+    if (daily === undefined) return;
+    await saveLimits(id, { max_active: active, max_daily: daily });
+  }
+
+  async function liftPause(c) {
+    if (!confirm('Lift the cancellation pause for ' + c.name + '?')) return;
+    const { error } = await db.rpc('admin_lift_pause', { p_customer: c.customer_id });
+    if (error) alert(error.message);
+    await refresh();
+  }
+
   function render(orders) {
     const box = $('orders');
     box.replaceChildren();
@@ -783,6 +863,11 @@
         h('button', { class: 'primary', type: 'button', onclick: () => assign(o, sel.value) },
           o.status === 'assigned' ? 'Reassign' : 'Assign'),
         h('button', { class: 'danger', type: 'button', onclick: () => cancelOrder(o, why.value) }, 'Cancel')));
+    }
+    if (o.customer_id) {
+      kids.push(h('div', { class: 'row' },
+        h('button', { class: 'danger', type: 'button', onclick: () => setBlock(o.customer_id, o.sender_name, true) }, 'Block customer'),
+        h('button', { type: 'button', onclick: () => changeLimits(o.customer_id, o.sender_name) }, 'Booking limits')));
     }
     return h('div', { class: 'card' }, kids);
   }
