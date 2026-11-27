@@ -226,6 +226,15 @@
       <div id="topups"></div>
     </details>
 
+    <details class="card" open>
+      <summary>Cancellation Fees to Review <span id="feeCount" class="badge booked">0</span></summary>
+      <div class="muted">Approving adds &#8369;50 to the rider's credit wallet and records it as unpaid by the customer.</div>
+      <div id="feeError" class="msg" hidden></div>
+      <div id="fees"></div>
+      <h2 style="margin-top:14px">Unpaid by customers</h2>
+      <div id="debts"></div>
+    </details>
+
     <details class="card">
       <summary>Export deliveries to spreadsheet (CSV / Excel)</summary>
       <div class="export-grid">
@@ -584,6 +593,7 @@
     syncExportRiders();
     render(o.data || []);
     await loadTopups();
+    await loadFees();
   }
 
   /* Credit Top-up Approval */
@@ -634,6 +644,87 @@
       h('div', { class: 'row' }, approve, reject));
   }
 
+  /* Cancellation fees */
+  function feeError(t) { const e = $('feeError'); e.textContent = t || ''; e.hidden = !t; }
+
+  async function loadFees() {
+    const since = new Date(Date.now() - 30 * 86400000).toISOString();
+    const [pending, recent, debts] = await Promise.all([
+      db.from('orders').select('*').eq('cancel_fee_status', 'pending').order('cancelled_at', { ascending: true }),
+      db.from('orders').select('customer_id, rider_id').in('cancel_fee_status', ['pending', 'approved']).gte('cancelled_at', since),
+      db.from('profiles').select('id, full_name, phone, unpaid_penalty').gt('unpaid_penalty', 0)
+    ]);
+    const err = pending.error || recent.error || debts.error;
+    if (err) { feeError(err.message); return; }
+    feeError('');
+
+    const list = pending.data || [];
+    $('feeCount').textContent = String(list.length);
+    const box = $('fees');
+    box.replaceChildren();
+    if (!list.length) box.append(h('div', { class: 'muted line' }, 'No fees waiting.'));
+    list.forEach((o) => {
+      const pair = (recent.data || []).filter((x) => x.customer_id === o.customer_id && x.rider_id === o.rider_id).length;
+      box.append(feeRow(o, pair));
+    });
+
+    const owed = $('debts');
+    const rows = [];
+    if (!(debts.data || []).length) rows.push(h('div', { class: 'muted' }, 'Nothing unpaid.'));
+    for (const p of debts.data || []) {
+      const last = await db.from('orders').select('sender_name, sender_phone').eq('customer_id', p.id)
+        .order('created_at', { ascending: false }).limit(1);
+      const o = (last.data && last.data[0]) || {};
+      const name = p.full_name || o.sender_name || ('Customer ' + p.id.slice(0, 4));
+      rows.push(h('div', { class: 'row' },
+        h('div', { style: 'flex:2' }, h('strong', {}, name), ' ', o.sender_phone ? tel(o.sender_phone) : '',
+          h('div', { class: 'muted' }, peso(p.unpaid_penalty) + (Number(p.unpaid_penalty) >= 100 ? ' · booking paused' : ''))),
+        h('button', { type: 'button', onclick: async () => {
+          if (!confirm('Have you received the unpaid fee from ' + name + '?')) return;
+          const { data, error } = await db.rpc('admin_mark_penalty_paid', { p_customer: p.id });
+          alert(error ? error.message : 'Marked as paid: ' + peso(data));
+          await refresh();
+        } }, 'Mark as paid')));
+    }
+    owed.replaceChildren(...rows);   // replace once, so overlapping refreshes cannot duplicate rows
+  }
+
+  function feeRow(o, pair) {
+    const rider = riders.find((r) => r.id === o.rider_id);
+    const name = rider ? riderLabel(rider) : 'Rider';
+    const mins = (from, to) => from && to ? Math.round((new Date(to) - new Date(from)) / 60000) : null;
+    const afterAssign = mins(o.accepted_at, o.cancelled_at);
+    const waited = mins(o.arrived_pickup_at, o.cancelled_at);
+    const evidence = [
+      o.cancel_type === 'sender_no_show' ? 'Sender no-show' : 'Late cancellation',
+      afterAssign === null ? null : afterAssign + ' min after assignment',
+      waited === null ? 'rider did not mark arrival' : 'rider arrived ' + waited + ' min before cancel',
+      o.arrived_distance_km === null || o.arrived_distance_km === undefined ? null : o.arrived_distance_km + ' km from pickup when marked'
+    ].filter(Boolean).join(' · ');
+    const flag = pair >= 3 ? 'REVIEW: ' + pair + ' fees between this customer and rider in 30 days'
+      : pair === 2 ? 'Watch: 2nd fee between this customer and rider in 30 days' : '';
+
+    const approve = h('button', { class: 'primary', type: 'button', onclick: () => decide(true) }, 'Approve ' + peso(o.cancellation_fee));
+    const waive = h('button', { class: 'danger', type: 'button', onclick: () => decide(false) }, 'Waive');
+    async function decide(ok) {
+      let question = ok
+        ? 'Approve? ' + name + ' gets ' + peso(o.cancellation_fee) + ' wallet credit and the customer owes it.'
+        : 'Waive this fee? Nothing is charged or credited.';
+      if (ok && flag.startsWith('REVIEW')) question = flag + '. Have you checked these?\n\n' + question;
+      if (!confirm(question)) return;
+      approve.disabled = waive.disabled = true;
+      const { error } = await db.rpc('admin_decide_cancel_fee', { p_order: o.id, p_approve: ok });
+      if (error) alert(error.message);
+      await refresh();
+    }
+    return h('div', { class: 'line', style: 'border-top:1px solid var(--line); padding-top:10px; margin-top:10px' },
+      h('div', { class: 'top' }, h('strong', {}, o.tracking_code), h('strong', {}, peso(o.cancellation_fee))),
+      h('div', {}, o.sender_name, ' ', tel(o.sender_phone), ' → rider ' + name),
+      h('div', { class: 'muted' }, evidence),
+      flag ? h('div', { class: 'msg' }, flag) : null,
+      h('div', { class: 'row' }, approve, waive));
+  }
+
   function render(orders) {
     const box = $('orders');
     box.replaceChildren();
@@ -681,11 +772,17 @@
         if (r.id === o.rider_id) op.selected = true;
         sel.append(op);
       });
+      const why = h('select', { 'aria-label': 'Cancel reason' },
+        h('option', { value: 'other' }, 'Cancel reason: rider or other (no fee)'),
+        h('option', { value: 'customer_request' }, 'Cancel reason: customer asked'),
+        o.status === 'assigned' ? h('option', { value: 'sender_no_show' }, 'Cancel reason: sender no-show') : null);
+      if (o.arrived_pickup_at) kids.push(h('div', { class: 'muted line' }, 'Rider arrived at pickup ' + when(o.arrived_pickup_at)));
+      kids.push(h('div', { class: 'row' }, why));
       kids.push(h('div', { class: 'row' },
         sel,
         h('button', { class: 'primary', type: 'button', onclick: () => assign(o, sel.value) },
           o.status === 'assigned' ? 'Reassign' : 'Assign'),
-        h('button', { class: 'danger', type: 'button', onclick: () => cancelOrder(o) }, 'Cancel')));
+        h('button', { class: 'danger', type: 'button', onclick: () => cancelOrder(o, why.value) }, 'Cancel')));
     }
     return h('div', { class: 'card' }, kids);
   }
@@ -697,10 +794,12 @@
     await refresh();
   }
 
-  async function cancelOrder(o) {
-    if (!confirm('Cancel order ' + o.tracking_code + '?')) return;
-    const { error } = await db.from('orders').update({ status: 'cancelled' }).eq('id', o.id);
+  async function cancelOrder(o, reason) {
+    const text = { other: 'rider or other, no fee', customer_request: 'customer asked', sender_no_show: 'sender no-show' }[reason];
+    if (!confirm('Cancel order ' + o.tracking_code + '?\nReason: ' + text)) return;
+    const { data, error } = await db.rpc('admin_cancel_order', { p_order: o.id, p_reason: reason });
     if (error) alert(error.message);
+    else if (data && data.fee > 0) alert('Cancelled. A ' + peso(data.fee) + ' fee is waiting under Cancellation Fees to Review.');
     await refresh();
   }
 

@@ -125,6 +125,7 @@
       <button type="button" data-view="book">Book a Delivery</button>
       <button type="button" data-view="orders">Orders</button>
       <button type="button" data-view="help">Help Center</button>
+      <button type="button" data-view="policy">Cancellation Policy</button>
     </nav>
        <svg viewBox="0 0 265 56" role="img" aria-label="PadalaKo Logo">
       <defs>
@@ -355,7 +356,9 @@
 
       <div class="quote"><span>Delivery fee (<span id="quoteVehLabel">Motorcycle</span>)</span><span id="quote">—</span></div>
 
+      <div id="feeNotice" class="msg err" hidden></div>
       <div id="error" class="msg err" role="alert" hidden></div>
+      <div class="hint" style="margin-bottom:8px">By booking, you agree to the <a href="#" id="policyLink" style="color:var(--brand-accent);font-weight:600">Cancellation &amp; No-Show Policy</a>.</div>
       <button id="submitBtn" class="primary" type="submit">Book delivery</button>
     </form>
 
@@ -399,8 +402,47 @@
         <button type="button" data-tab="completed">Completed</button>
         <button type="button" data-tab="cancelled">Cancelled</button>
       </div>
+      <div id="orderMsg" class="msg" hidden></div>
       <div id="orderList"></div>
       <div class="hint">Showing bookings from the last 6 months.</div>
+    </section>
+
+    <section id="policyView" hidden>
+      <h1>Cancellation &amp; No-Show Policy</h1>
+      <div class="order-card">
+        <strong>How to cancel</strong>
+        <div>Before pickup: open &#9776; &rarr; Orders &rarr; Ongoing and tap <strong>Cancel booking</strong>. After pickup, call or message <a href="tel:09981809349" style="color:var(--brand-accent);font-weight:700">09981809349</a> with your booking ref number.</div>
+      </div>
+      <div class="order-card">
+        <strong>Free cancellation</strong>
+        <ul>
+          <li>Before a rider is assigned.</li>
+          <li>Within 5 minutes after a rider is assigned.</li>
+          <li>When the rider cancels, asks you to cancel, or makes no progress to the pickup point for 15 minutes. If a fee was recorded, contact us and we will waive it.</li>
+        </ul>
+      </div>
+      <div class="order-card">
+        <strong>Fees (all vehicle types)</strong>
+        <ul>
+          <li><strong>Late cancellation:</strong> &#8369;50, more than 5 minutes after a rider is assigned.</li>
+          <li><strong>Sender no-show:</strong> &#8369;50, if the rider arrives at pickup, tries to contact you and waits 5 minutes with no response.</li>
+          <li><strong>Recipient unavailable or refuses the parcel:</strong> after 5 minutes of trying, the parcel goes back to the sender. The sender pays the delivery fee and a return fee of up to the same amount.</li>
+          <li><strong>After pickup:</strong> the booking can no longer be cancelled for free. The full delivery fee applies, plus any return fee.</li>
+        </ul>
+      </div>
+      <div class="order-card">
+        <strong>Paying a fee</strong>
+        <ul>
+          <li>PadalaKo reviews each fee before it is charged.</li>
+          <li>A confirmed fee is added to your next booking. Pay it in cash to the rider at pickup, even if the recipient pays the delivery fee.</li>
+          <li>With 2 unpaid fees (&#8369;100), you cannot book until they are paid.</li>
+          <li>Repeated cancellations with the same rider are reviewed. Arranging cancellations to collect fees may lead to your account being blocked.</li>
+        </ul>
+      </div>
+      <div class="order-card">
+        <strong>Disputes</strong>
+        <div>If you believe a fee is wrong, contact us within 7 days with your booking ref number.</div>
+      </div>
     </section>
 
     <section id="helpView" hidden>
@@ -571,6 +613,8 @@ $('logoutBtn').addEventListener('click', async () => {
   customerId = null;
   ordersLoad++;
   $('orderList').replaceChildren();
+  $('feeNotice').hidden = true;
+  orderMsg('');
   $('menuBtn').hidden = true;
   closeMenu();
   $('appContent').hidden = true;
@@ -1145,6 +1189,13 @@ $('bookForm').addEventListener('submit', async (ev) => {
   if (!res.ok) { showError(res.error || 'Could not book. Please try again.'); return; }
   $('successCode').textContent = res.tracking_code;
   $('successFee').textContent = 'Delivery fee: ' + peso(res.delivery_fee);
+  const code = res.tracking_code;
+  db.from('orders').select('rolled_over_penalty').eq('tracking_code', code).maybeSingle().then(({ data }) => {
+    if (data && Number(data.rolled_over_penalty) > 0 && $('successCode').textContent === code) {
+      $('successFee').textContent += ' · plus ' + peso(data.rolled_over_penalty) + ' unpaid cancellation fee, cash to the rider at pickup';
+    }
+  });
+  loadFeeNotice();
   $('success').hidden = false;
   $('trackCode').value = res.tracking_code;
   $('trackBtn').click();
@@ -1321,9 +1372,11 @@ function showSection(name) {
   $('bookView').hidden = name !== 'book';
   $('ordersView').hidden = name !== 'orders';
   $('helpView').hidden = name !== 'help';
+  $('policyView').hidden = name !== 'policy';
   document.querySelectorAll('#menu button').forEach((b) => b.classList.toggle('active', b.dataset.view === name));
   closeMenu();
-  if (name === 'orders') loadOrders();
+  if (name === 'orders') { orderMsg(''); loadOrders(); }
+  if (name === 'book') loadFeeNotice();
   if (name === 'book') {
     // maps need a redraw after being hidden
     requestAnimationFrame(() => { if (bookMap) bookMap.invalidateSize(); if (map) map.invalidateSize(); });
@@ -1339,6 +1392,11 @@ document.addEventListener('click', (e) => { if (!$('menu').contains(e.target)) c
 $('menu').addEventListener('click', (e) => {
   const b = e.target.closest('button');
   if (b) showSection(b.dataset.view);
+});
+$('policyLink').addEventListener('click', (e) => {
+  e.preventDefault();
+  showSection('policy');
+  window.scrollTo(0, 0);
 });
 $('orderTabs').addEventListener('click', (e) => {
   const b = e.target.closest('button');
@@ -1363,7 +1421,7 @@ async function loadOrders() {
   const since = new Date();
   since.setMonth(since.getMonth() - 6);
   const { data, error } = await db.from('orders')
-    .select('tracking_code, status, created_at, pickup_address, dropoff_address, delivery_fee, vehicle_type')
+    .select('id, tracking_code, status, created_at, pickup_address, dropoff_address, delivery_fee, vehicle_type, accepted_at, rolled_over_penalty, cancellation_fee, cancel_fee_status')
     .eq('customer_id', customerId)
     .in('status', TAB_STATUS[orderTab])
     .gte('created_at', since.toISOString())
@@ -1373,6 +1431,40 @@ async function loadOrders() {
   if (error) { box.replaceChildren(el('div', 'msg err', 'Could not load your orders. Please try again.')); return; }
   if (!data.length) { box.replaceChildren(el('div', 'order-card hint', 'No ' + orderTab + ' orders.')); return; }
   box.replaceChildren(...data.map(orderCard));
+}
+
+function orderMsg(text, isError) {
+  const box = $('orderMsg');
+  box.textContent = text || '';
+  box.className = 'msg ' + (isError ? 'err' : 'ok');
+  box.hidden = !text;
+}
+
+async function cancelBooking(o, button) {
+  const rule = o.status === 'assigned'
+    ? 'A rider is assigned. A ' + peso(50) + ' fee applies if this was more than 5 minutes ago.'
+    : 'No rider is assigned yet, so there is normally no fee.';
+  if (!confirm('Cancel booking ' + o.tracking_code + '?\n\n' + rule)) return;
+  button.disabled = true;
+  const { data, error } = await db.rpc('customer_cancel_order', { p_order: o.id });
+  if (error) orderMsg(error.message, true);
+  else if (data && data.fee > 0) orderMsg('Booking ' + o.tracking_code + ' cancelled. A ' + peso(data.fee) + ' late-cancellation fee was recorded for review.', true);
+  else orderMsg('Booking ' + o.tracking_code + ' cancelled. No fee.', false);
+  loadOrders();
+  loadFeeNotice();
+}
+
+async function loadFeeNotice() {
+  if (!customerId) return;
+  const id = customerId;
+  const { data } = await db.from('profiles').select('unpaid_penalty').eq('id', id).maybeSingle();
+  if (id !== customerId) return;   // signed out or switched meanwhile
+  const due = Number((data && data.unpaid_penalty) || 0);
+  const box = $('feeNotice');
+  box.hidden = !(due > 0);
+  box.textContent = due >= 100
+    ? 'You have ' + peso(due) + ' in unpaid cancellation fees. Booking is paused until they are paid. Contact 09981809349.'
+    : 'Unpaid cancellation fee: ' + peso(due) + '. It is collected in cash by the rider at pickup on your next booking.';
 }
 
 function orderCard(o) {
@@ -1398,7 +1490,21 @@ function orderCard(o) {
     $('trackCode').scrollIntoView({ behavior: 'smooth', block: 'center' });
   });
   bottom.append(el('strong', '', peso(o.delivery_fee)), track);
+  if (Number(o.rolled_over_penalty) > 0 && o.status !== 'cancelled') {
+    card.append(el('div', 'hint', 'Includes an unpaid cancellation fee of ' + peso(o.rolled_over_penalty) + ', payable in cash to the rider at pickup.'));
+  }
+  if (o.status === 'cancelled' && o.cancel_fee_status) {
+    const state = { pending: 'for review', approved: 'confirmed', waived: 'waived' }[o.cancel_fee_status];
+    card.append(el('div', 'hint', 'Cancellation fee ' + peso(o.cancellation_fee) + ': ' + state));
+  }
   card.append(bottom);
+  if (o.status === 'booked' || o.status === 'assigned') {
+    const cancel = el('button', 'secondary', 'Cancel booking');
+    cancel.type = 'button';
+    cancel.style.color = 'var(--err)';
+    cancel.addEventListener('click', () => cancelBooking(o, cancel));
+    card.append(cancel);
+  }
   return card;
 }
 

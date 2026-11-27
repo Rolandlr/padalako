@@ -252,6 +252,35 @@
     <h2>My active deliveries</h2>
     <div id="jobs"></div>
   </section>
+  <details id="riderPolicy" style="margin:18px 0; padding:12px 14px; border:1px solid #94a3b8; border-radius:12px;">
+    <summary style="font-weight:700; cursor:pointer;">Cancellation &amp; No-Show Policy</summary>
+    <p><strong>After you accept a job</strong></p>
+    <ul>
+      <li>Tap <strong>Arrived at pickup</strong> when you get there. Without it, a sender no-show cannot be charged.</li>
+      <li>Go to the pickup point right away. No progress for 15 minutes without notice counts as a rider no-show.</li>
+      <li>Do not cancel unless you have a valid reason: vehicle breakdown, accident, unsafe location, prohibited or overweight item, or a parcel that does not fit your vehicle.</li>
+      <li>To cancel, call <a href="tel:09981809349">09981809349</a> with the booking ref number and your reason.</li>
+      <li>Never ask the customer to cancel for you.</li>
+    </ul>
+    <p><strong>Customer or recipient not around</strong></p>
+    <ul>
+      <li>Call or text them, and wait at least 5 minutes at the pinned location.</li>
+      <li>Contact 09981809349 before you leave. Do not leave a parcel unattended.</li>
+      <li>If the recipient cannot receive it, return the parcel to the sender as instructed.</li>
+      <li>A confirmed &#8369;50 late-cancellation or sender no-show fee is added to your credit wallet after PadalaKo approves it. Wallet credit is not cash.</li>
+      <li>If a job shows an unpaid cancellation fee, collect it in cash at pickup. It is deducted from your credit when you complete the delivery.</li>
+      <li>Repeated cancellations with the same customer are reviewed. Arranging them to collect fees leads to deactivation.</li>
+    </ul>
+    <p><strong>Penalties</strong> (cancellation without a valid reason, rider no-show, or asking a customer to cancel)</p>
+    <ul>
+      <li>1st offense: warning.</li>
+      <li>2nd offense within 30 days: 24-hour suspension.</li>
+      <li>3rd offense within 30 days: 7-day suspension.</li>
+      <li>4th offense within 30 days: account review and possible deactivation.</li>
+      <li>Theft, tampering, fraud or a false no-show report: immediate deactivation pending investigation.</li>
+    </ul>
+    <p>To appeal a penalty, contact 09981809349 within 7 days.</p>
+  </details>
 </main>
 
 <script>
@@ -880,6 +909,7 @@ await refreshAll();
           collect.push('Collect fee at DROP-OFF: ' + peso(o.delivery_fee));
         }
       }
+      if (Number(o.rolled_over_penalty) > 0) collect.push('Collect unpaid cancellation fee in cash at PICKUP: ' + peso(o.rolled_over_penalty) + ' (deducted from your credit on delivery)');
       if (Number(o.cod_amount) > 0) collect.push('Collect item COD at DROP-OFF: ' + peso(o.cod_amount));
       const hasCoords = (o.pickup_lat && o.pickup_lng) || (o.dropoff_lat && o.dropoff_lng);
       const mapDiv = h('div', { class: 'job-map' });
@@ -915,6 +945,11 @@ await refreshAll();
           hasCoords ? mapDiv : null,
           legend,
           navBtns,
+          o.status !== 'assigned' ? null
+            : o.arrived_pickup_at
+              ? h('div', { class: 'note' }, 'Arrived at pickup ' + new Date(o.arrived_pickup_at).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' }) +
+                  '. If the sender does not respond after 5 minutes, call 09981809349.')
+              : h('button', { type: 'button', style: 'margin-top:10px', onclick: () => arrived(o) }, 'Arrived at pickup'),
           h('button', { class: 'primary', type: 'button', style: 'margin-top:10px', onclick: () => advance(o, next) },
             next === 'picked_up' ? 'Picked up' : 'Delivered')
         )
@@ -922,6 +957,13 @@ await refreshAll();
 
       if (hasCoords) renderJobMap(o, mapDiv);
     });
+  }
+
+  async function arrived(o) {
+    if (!confirm('Are you at the pickup point now?')) return;
+    const { error } = await db.rpc('rider_arrived', { p_order: o.id });
+    if (error) alert(error.message);
+    await refreshAll();
   }
 
   async function advance(o, next) {
@@ -937,6 +979,7 @@ await refreshAll();
       }
       if (data.commission_deducted != null) {
         alert('Delivered! 20% commission deducted: ' + peso(Number(data.commission_deducted)) +
+          (Number(data.penalty_deducted) > 0 ? '\nCancellation fee you collected, also deducted: ' + peso(Number(data.penalty_deducted)) : '') +
           '\nRemaining Credit Balance: ' + peso(Number(data.new_credit_balance ?? 0)));
       }
     }
