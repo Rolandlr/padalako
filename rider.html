@@ -189,12 +189,12 @@
     <!-- Wallet & Load Credit Card -->
     <div class="card" style="margin-top:12px">
       <div class="ctrl-grid">
-        <div class="wallet-box credit">
+        <div class="wallet-box credit" style="grid-column:1/-1">
           <div class="wallet-label">Credit Wallet</div>
           <div id="displayCreditBalance" class="wallet-val">₱0.00</div>
           <div class="wallet-sub">20% commission per trip</div>
         </div>
-        <div class="wallet-box">
+        <div class="wallet-box" hidden><!-- COD is switched off -->
           <div class="wallet-label">COD Limit (Admin Set)</div>
           <div id="displayCashOnHand" class="wallet-val">₱0.00</div>
           <div class="wallet-sub">Max COD allowed</div>
@@ -758,7 +758,7 @@
     const box = $('availableJobs');
     box.replaceChildren();
     if (!list.length) {
-      box.append(h('div', { class: 'card muted' }, 'No new bookings matching your vehicle, credit, or COD limit right now. Checking automatically…'));
+      box.append(h('div', { class: 'card muted' }, 'No new bookings matching your vehicle or credit right now. Checking automatically…'));
       return;
     }
     list.forEach((o) => box.append(availableCard(o)));

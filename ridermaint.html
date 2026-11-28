@@ -252,7 +252,7 @@
           <label for="newCredit">Starting Credit Wallet (₱)</label>
           <input id="newCredit" type="number" min="0" step="50" value="200">
         </div>
-        <div>
+        <div hidden><!-- COD is switched off -->
           <label for="newCod">Max COD Limit (₱)</label>
           <input id="newCod" type="number" min="0" step="100" value="2000">
         </div>
@@ -313,7 +313,7 @@
           <label for="editCredit">Credit Wallet (₱)</label>
           <input id="editCredit" type="number" min="0" step="10">
         </div>
-        <div>
+        <div hidden><!-- COD is switched off -->
           <label for="editCod">Max COD Limit (₱)</label>
           <input id="editCod" type="number" min="0" step="100">
         </div>
@@ -771,7 +771,7 @@
           ${r.email ? ' · ' + escapeHtml(r.email) : ''}
         </div>
         <div class="muted">
-          Credit Wallet: <strong>${peso(creditBal)}</strong> · COD Limit: <strong>${peso(Number(r.cash_on_hand || 0))}</strong>
+          Credit Wallet: <strong>${peso(creditBal)}</strong>
         </div>
       `;
 
@@ -898,7 +898,6 @@
           vehicle_color_make: $('editColorMake').value.trim() || null,
           plate_no: $('editPlate').value.trim().toUpperCase() || null,
           credit_balance: parseFloat($('editCredit').value) || 0,
-          cash_on_hand: parseFloat($('editCod').value) || 0,
           is_active: isVerified ? ($('editActive').value === 'true') : false
         })
         .eq('id', id);
