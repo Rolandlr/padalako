@@ -597,11 +597,11 @@
     ]);
     if (r.error || o.error) { listError((r.error || o.error).message); return; }
     riders = r.data || [];
+    await loadLimits();
     syncExportRiders();
     render(o.data || []);
     await loadTopups();
     await loadFees();
-    await loadLimits();
   }
 
   /* Credit Top-up Approval */
@@ -865,8 +865,11 @@
         h('button', { class: 'danger', type: 'button', onclick: () => cancelOrder(o, why.value) }, 'Cancel')));
     }
     if (o.customer_id) {
+      const blocked = limitRows.some((c) => c.customer_id === o.customer_id && c.blocked);
+      if (blocked) kids.push(h('div', { class: 'msg' }, 'This customer is blocked from making new bookings.'));
       kids.push(h('div', { class: 'row' },
-        h('button', { class: 'danger', type: 'button', onclick: () => setBlock(o.customer_id, o.sender_name, true) }, 'Block customer'),
+        h('button', { class: blocked ? 'primary' : 'danger', type: 'button', onclick: () => setBlock(o.customer_id, o.sender_name, !blocked) },
+          blocked ? 'Unblock customer' : 'Block customer'),
         h('button', { type: 'button', onclick: () => changeLimits(o.customer_id, o.sender_name) }, 'Booking limits')));
     }
     return h('div', { class: 'card' }, kids);
