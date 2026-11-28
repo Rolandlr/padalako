@@ -348,6 +348,8 @@
   const LABEL = { booked: 'Booked', assigned: 'Rider assigned', picked_up: 'Picked up/On the way', delivered: 'Delivered', cancelled: 'Cancelled' };
   const ACTIVE = ['booked', 'assigned', 'picked_up'];
   let riders = [];
+  let activeJobs = [];        // assigned / picked up orders, used to show which riders are busy
+  const picked = {};          // rider and cancel reason chosen on a card, kept across refreshes
   let timer = null;
   let isRecovering = Boolean(window.__IS_RECOVERY__);
 
@@ -591,12 +593,15 @@
     if (f === 'active') q = q.in('status', ACTIVE);
     else if (f !== 'all') q = q.eq('status', f);
 
-    const [r, o] = await Promise.all([
-      db.from('riders').select('id, credit_balance, vehicle_type, vehicle_color_make, plate_no, is_active, last_seen_at, profiles(full_name, avatar_url)'),
-      q
+    const [r, o, a] = await Promise.all([
+      db.from('riders').select('id, credit_balance, cash_on_hand, vehicle_type, vehicle_color_make, plate_no, is_active, last_seen_at, profiles(full_name, avatar_url)'),
+      q,
+      db.from('orders').select('id, rider_id, tracking_code').in('status', ['assigned', 'picked_up'])
     ]);
-    if (r.error || o.error) { listError((r.error || o.error).message); return; }
+    const failed = r.error || o.error || a.error;
+    if (failed) { listError(failed.message); return; }
     riders = r.data || [];
+    activeJobs = a.data || [];
     await loadLimits();
     syncExportRiders();
     render(o.data || []);
@@ -813,6 +818,20 @@
     orders.forEach((o) => box.append(card(o)));
   }
 
+  // same rules as assign_rider in the database, which still has the final say
+  const commissionNeeded = (o) =>
+    (Math.round(Number(o.delivery_fee || 0) * 20) + Math.round(Number(o.rolled_over_penalty || 0) * 100)) / 100;
+  const vehicleKey = (v) => String(v || '').trim().toLowerCase();
+
+  function whyNot(r, o) {
+    if (vehicleKey(r.vehicle_type) !== vehicleKey(o.vehicle_type)) return r.vehicle_type ? 'has ' + r.vehicle_type : 'no vehicle type';
+    const job = activeJobs.find((j) => j.rider_id === r.id && j.id !== o.id);
+    if (job) return 'busy with ' + job.tracking_code;
+    if (Number(r.credit_balance || 0) < commissionNeeded(o)) return 'credit only ' + peso(r.credit_balance || 0);
+    if (Number(o.cod_amount) > 0 && Number(r.cash_on_hand || 0) < Number(o.cod_amount)) return 'COD limit ' + peso(r.cash_on_hand || 0);
+    return '';
+  }
+
   function card(o) {
     const open = o.status === 'booked' || o.status === 'assigned';
     const rider = riders.find((r) => r.id === o.rider_id);
@@ -846,21 +865,37 @@
     ];
 
     if (open) {
-      const sel = h('select', { 'aria-label': 'Choose rider' }, h('option', { value: '' }, 'Choose rider…'));
-      riders.filter((r) => r.is_active).forEach((r) => {
-        const op = h('option', { value: r.id }, riderLabel(r) + (isLive(r) ? ' · location live' : ''));
-        if (r.id === o.rider_id) op.selected = true;
+      const choice = picked[o.id] || (picked[o.id] = {});
+      const sel = h('select', { 'aria-label': 'Choose rider', onchange: () => { choice.rider = sel.value; } },
+        h('option', { value: '' }, 'Choose rider…'));
+      const checked = riders.filter((r) => r.is_active).map((r) => ({ r, no: whyNot(r, o) }))
+        .sort((x, y) => Boolean(x.no) - Boolean(y.no) || Boolean(isLive(y.r)) - Boolean(isLive(x.r)));
+      const wanted = choice.rider || o.rider_id;
+      checked.forEach(({ r, no }) => {
+        const op = h('option', { value: r.id, disabled: Boolean(no) },
+          riderLabel(r) + (no ? ' · ' + no : isLive(r) ? ' · location live' : ''));
+        if (r.id === wanted && !no) op.selected = true;
         sel.append(op);
       });
-      const why = h('select', { 'aria-label': 'Cancel reason' },
+      kids.push(h('div', { class: 'muted line' }, 'Needs: ' + (o.vehicle_type || 'motorcycle') +
+        ' · rider credit ' + peso(commissionNeeded(o)) +
+        (Number(o.cod_amount) > 0 ? ' · COD limit ' + peso(o.cod_amount) : '')));
+      if (!checked.some((c) => !c.no)) kids.push(h('div', { class: 'msg' }, 'No rider can take this booking right now. Open the list to see why.'));
+      const why = h('select', { 'aria-label': 'Cancel reason', onchange: () => { choice.reason = why.value; } },
         h('option', { value: 'other' }, 'Cancel reason: rider or other (no fee)'),
         h('option', { value: 'customer_request' }, 'Cancel reason: customer asked'),
         o.status === 'assigned' ? h('option', { value: 'sender_no_show' }, 'Cancel reason: sender no-show') : null);
+      if (choice.reason && [...why.options].some((x) => x.value === choice.reason)) why.value = choice.reason;
       if (o.arrived_pickup_at) kids.push(h('div', { class: 'muted line' }, 'Rider arrived at pickup ' + when(o.arrived_pickup_at)));
       kids.push(h('div', { class: 'row' }, why));
       kids.push(h('div', { class: 'row' },
         sel,
-        h('button', { class: 'primary', type: 'button', onclick: () => assign(o, sel.value) },
+        h('button', { class: 'primary', type: 'button', onclick: async (e) => {
+          const btn = e.currentTarget;
+          btn.disabled = true;
+          await assign(o, sel.value);
+          btn.disabled = false;
+        } },
           o.status === 'assigned' ? 'Reassign' : 'Assign'),
         h('button', { class: 'danger', type: 'button', onclick: () => cancelOrder(o, why.value) }, 'Cancel')));
     }
@@ -879,6 +914,7 @@
     if (!riderId) { alert('Choose a rider first.'); return; }
     const { error } = await db.rpc('assign_rider', { p_order: o.id, p_rider: riderId });
     if (error) alert(error.message);
+    else delete picked[o.id];
     await refresh();
   }
 
@@ -893,7 +929,10 @@
 
   function csvCell(val) {
     if (val === null || val === undefined) return '""';
-    const s = String(val).replace(/"/g, '""');
+    let s = String(val);
+    // stop Excel running customer-typed text as a formula (plain phone numbers are left as they are)
+    if (/^\s*[=+\-@]/.test(s) && !/^\+?\d+$/.test(s)) s = "'" + s;
+    s = s.replace(/"/g, '""');
     return '"' + s + '"';
   }
 
